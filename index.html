@@ -656,12 +656,14 @@ function analyzeAll() {
       }
       if(!ALL_ROWS.length) { setProgress('Nenhum dado válido encontrado.'); return; }
       buildMeta();
-      buildFilters();
       updateHeader();
       document.getElementById('load-screen').style.display='none';
       setProgress('');
-      refresh();
-      // Also process any UPS files already loaded from the load screen
+      // Inicializar secção Injeção — reconstrói filtros e renderiza
+      currentSection = 'inj';
+      currentPage = 'overview';
+      setSection('inj');
+      // Processar ficheiros UPS se já carregados
       upsCheckReady();
     } catch(err) {
       setProgress('Erro: ' + err.message);
@@ -1655,7 +1657,6 @@ function upsRefresh() {
   if(currentPage==='defects')  upsRenderDefects(agg);
   if(currentPage==='compare')  upsRenderCompare(rows);
   if(currentPage==='refs')     upsRenderRefs(agg);
-}
 }
 
 // ── UPS RENDERS ──
