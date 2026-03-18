@@ -265,7 +265,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 <div class="content">
 <!-- FILTER PANEL -->
 <div class="filter-panel">
-  <div class="fp-header" id="fp-header-title">Filtros — Injeção <span class="fp-clear" id="fp-clear-btn" onclick="clearAll()">Limpar</span></div>
+  <div class="fp-header" id="fp-header-title">Filtros — UPI <span class="fp-clear" id="fp-clear-btn" onclick="clearAll()">Limpar</span></div>
   <div class="fp-section">
     <div class="fp-stitle" onclick="toggleSec('s-fs')">Fins de semana <span class="fp-arrow open" id="arr-s-fs">▶</span></div>
     <div class="fp-body" id="s-fs">
@@ -310,7 +310,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
   <div class="toolbar" style="flex-direction:column;height:auto;padding:0;">
     <!-- Linha 1: Secção (Injeção | UPS) -->
     <div style="display:flex;align-items:center;height:38px;padding:0 18px;border-bottom:1px solid var(--bg);gap:2px;">
-      <button class="nav-tab active" id="sect-inj" style="font-size:11px;height:38px;border-bottom-width:3px;" onclick="setSection('inj')">⬡ Injeção</button>
+      <button class="nav-tab active" id="sect-inj" style="font-size:11px;height:38px;border-bottom-width:3px;" onclick="setSection('inj')">⬡ UPI</button>
       <button class="nav-tab" id="sect-ups" style="font-size:11px;height:38px;border-bottom-width:3px;" onclick="setSection('ups')">⬡ UPS</button>
       <div id="ups-proj-bar" style="display:none;margin-left:12px;display:none;align-items:center;gap:6px;">
         <button class="ups-proj-btn martur active" data-proj="martur" onclick="upsSetProj('martur')">Martur</button>
@@ -347,7 +347,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 
     <!-- KPI ROW — partilhado, preenchido por render -->
     <div class="kpi-row" id="kpi-row"></div>
-    <div id="top3-section"><div class="card"><div class="card-title">Alertas — piores dias</div><div class="alert-row" id="top3-days"></div></div></div>
 
     <!-- ═══ INJEÇÃO PAGES ═══ -->
     <div id="page-overview">
@@ -527,7 +526,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 // ── CONSTANTS ──
 const TURNO_MIN = 440;
 const STOP_COLS = ['Avaria','Falta_Material','Falta_Recurso','ST_Setup','MT_Manutencao','MP_Materia_Prima','PQ_Qualidade','PA_Afinacao','SH_Shutdown'];
-const STOP_LABELS = {Avaria:'Avaria',Falta_Material:'Falta Material',Falta_Recurso:'Falta Recurso',ST_Setup:'Setup',MT_Manutencao:'Manutenção',MP_Materia_Prima:'Matéria Prima',PQ_Qualidade:'Qualidade',PA_Afinacao:'Afinação',SH_Shutdown:'Shutdown'};
+const STOP_LABELS = {Avaria:'Avaria / Manutenção',Falta_Material:'Falta Material',Falta_Recurso:'Falta Recurso',ST_Setup:'Setup',MT_Manutencao:'Avaria / Manutenção',MP_Materia_Prima:'Matéria Prima',PQ_Qualidade:'Qualidade',PA_Afinacao:'Afinação',SH_Shutdown:'Shutdown'};
 const DEF_COLS = ['Arame_Vista','Bolhas_Ar','Gito','Queimadas','Empenadas','Partidas','Deformadas','Oxidadas','Brancas','Gancho_Largo','Furo','Rebarbas','Sujas','Gancho_Danificado','Arame_Partido','Afinacao','Pino_NOK','Falha_Injecao_Arranque','Falha_Injecao_Processo'];
 const DEF_LABELS = {Arame_Vista:'Arame Vista',Bolhas_Ar:'Bolhas Ar',Gito:'Gito',Queimadas:'Queimadas',Empenadas:'Empenadas',Partidas:'Partidas',Deformadas:'Deformadas',Oxidadas:'Oxidadas',Brancas:'Brancas',Gancho_Largo:'Gancho Largo',Furo:'Furo',Rebarbas:'Rebarbas',Sujas:'Sujas',Gancho_Danificado:'Gancho Danif.',Arame_Partido:'Arame Partido',Afinacao:'Afinação',Pino_NOK:'Pino NOK',Falha_Injecao_Arranque:'Falha Inj. Arranque',Falha_Injecao_Processo:'Falha Inj. Processo'};
 // Default speeds — user can add more via the load screen
@@ -743,7 +742,8 @@ function parseRow(r) {
   let totalStops = 0;
   for(const c of STOP_COLS) {
     const v = +r[c]||0;
-    stops[STOP_LABELS[c]||c] = v;
+    const lbl = STOP_LABELS[c]||c;
+    stops[lbl] = (stops[lbl]||0) + v;
     totalStops += v;
   }
   const defects = {};
@@ -1063,7 +1063,7 @@ function setSection(sect) {
     document.getElementById('ups-no-data-msg').style.display = hasAny ? 'none' : '';
     if(hasAny) buildUpsFilters();
   } else {
-    hdr.firstChild.textContent = 'Filtros — Injeção ';
+    hdr.firstChild.textContent = 'Filtros — UPI ';
     clearBtn.setAttribute('onclick','clearAll()');
     if(ALL_ROWS.length) buildInjFilters();
   }
@@ -1092,9 +1092,6 @@ function setPage(p) {
     if(el) el.style.display = (currentSection==='ups' && id===p) ? 'block' : 'none';
   });
 
-  // KPIs e top3 sempre visíveis
-  document.getElementById('top3-section').style.display = 'block';
-
   if(currentSection==='inj') refresh();
   else {
     const hasAny = UPS_PROJECTS.some(p => upsRows[p].length > 0);
@@ -1119,7 +1116,6 @@ function refresh(){
   renderActiveBar();
   const agg=aggregate(filteredRows);
   renderKPIs(agg.overall);
-  renderTop3(agg.byDate);
   if(currentPage==='overview')  renderOverview(agg);
   if(currentPage==='heatmap')   renderHeatmap(filteredRows);
   if(currentPage==='machines')  renderMachines(agg);
@@ -1647,7 +1643,6 @@ function upsRefresh() {
   const agg = upsAggregate(rows);
   upsMeta = upsBuildMeta(rows);
   upsRenderKPIs(agg.overall);
-  upsRenderTop3(agg.byDate);
   // Destroy all UPS charts when switching to avoid "canvas in use"
   Object.keys(upsCharts).forEach(k => { try { upsCharts[k].destroy(); } catch(e){} delete upsCharts[k]; });
   if(currentPage==='overview') upsRenderOverview(agg);
