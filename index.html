@@ -307,26 +307,49 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 
 <!-- MAIN -->
 <div class="main">
-  <div class="toolbar">
-    <button class="nav-tab active" onclick="setPage('overview')">Visão Geral</button>
-    <button class="nav-tab" onclick="setPage('heatmap')">Heatmap</button>
-    <button class="nav-tab" onclick="setPage('machines')">Máquinas</button>
-    <button class="nav-tab" onclick="setPage('stops')">Paragens</button>
-    <button class="nav-tab" onclick="setPage('defects')">Sucata</button>
-    <button class="nav-tab" onclick="setPage('compare')">Comparar meses</button>
-    <button class="nav-tab" onclick="setPage('refs')">Referências</button>
-    <button class="nav-tab" onclick="setPage('ups')" id="tab-ups" style="border-left:2px solid var(--border);margin-left:6px;padding-left:15px;">&#11042; UPS</button>
+  <div class="toolbar" style="flex-direction:column;height:auto;padding:0;">
+    <!-- Linha 1: Secção (Injeção | UPS) -->
+    <div style="display:flex;align-items:center;height:38px;padding:0 18px;border-bottom:1px solid var(--bg);gap:2px;">
+      <button class="nav-tab active" id="sect-inj" style="font-size:11px;height:38px;border-bottom-width:3px;" onclick="setSection('inj')">⬡ Injeção</button>
+      <button class="nav-tab" id="sect-ups" style="font-size:11px;height:38px;border-bottom-width:3px;" onclick="setSection('ups')">⬡ UPS</button>
+      <div id="ups-proj-bar" style="display:none;margin-left:12px;display:none;align-items:center;gap:6px;">
+        <button class="ups-proj-btn martur active" data-proj="martur" onclick="upsSetProj('martur')">Martur</button>
+        <button class="ups-proj-btn lx3" data-proj="lx3" onclick="upsSetProj('lx3')">LX3</button>
+        <button class="ups-proj-btn mra2" data-proj="mra2" onclick="upsSetProj('mra2')">MRA2</button>
+        <button class="ups-proj-btn" data-proj="all" onclick="upsSetProj('all')" style="margin-left:4px;">Todos</button>
+      </div>
+    </div>
+    <!-- Linha 2: Análise (partilhada entre secções) -->
+    <div style="display:flex;align-items:center;height:38px;padding:0 18px;gap:2px;">
+      <button class="nav-tab active" onclick="setPage('overview')">Visão Geral</button>
+      <button class="nav-tab" onclick="setPage('heatmap')">Heatmap</button>
+      <button class="nav-tab" onclick="setPage('machines')">Máquinas</button>
+      <button class="nav-tab" onclick="setPage('stops')">Paragens</button>
+      <button class="nav-tab" onclick="setPage('defects')">Sucata</button>
+      <button class="nav-tab" onclick="setPage('compare')">Comparar meses</button>
+      <button class="nav-tab" onclick="setPage('refs')">Referências</button>
+    </div>
   </div>
   <div class="body">
-    <div class="info-strip">
+    <!-- INFO STRIP -->
+    <div id="info-strip-inj" class="info-strip">
       <div class="info-item"><strong>Perf.:</strong> (Prod / Tempo disp.) / Vel. ideal</div>
       <div class="info-item"><strong>Disponib.:</strong> (440 − paragens) / 440 min</div>
       <div class="info-item"><strong>Qualidade:</strong> OK / (OK + NOK)</div>
     </div>
+    <div id="info-strip-ups" class="info-strip" style="display:none;">
+      <div class="info-item"><strong>OEE, Disponib., Desempenho, Qualidade</strong> pré-calculados pelo sistema UPS</div>
+      <div class="info-item" id="ups-no-data-msg" style="display:none;">⚠ Sem dados — carrega os ficheiros UPS no botão <strong>+ Ficheiros</strong></div>
+    </div>
+
+    <!-- ACTIVE BAR (injeção) -->
     <div id="active-bar" class="active-bar" style="display:none;"></div>
+
+    <!-- KPI ROW — partilhado, preenchido por render -->
     <div class="kpi-row" id="kpi-row"></div>
     <div id="top3-section"><div class="card"><div class="card-title">Alertas — piores dias</div><div class="alert-row" id="top3-days"></div></div></div>
 
+    <!-- ═══ INJEÇÃO PAGES ═══ -->
     <div id="page-overview">
       <div class="row-23" style="margin-bottom:10px;">
         <div class="card">
@@ -416,112 +439,89 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
       </div>
     </div>
 
-    <!-- UPS PAGE -->
-    <div id="page-ups" style="display:none;">
-      <!-- Project selector -->
-      <div id="ups-content">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
-          <div class="ups-selector" style="margin-bottom:0;">
-            <button class="ups-proj-btn martur active" data-proj="martur" onclick="upsSetProj('martur')">Martur</button>
-            <button class="ups-proj-btn lx3" data-proj="lx3" onclick="upsSetProj('lx3')">LX3</button>
-            <button class="ups-proj-btn mra2" data-proj="mra2" onclick="upsSetProj('mra2')">MRA2</button>
-            <button class="ups-proj-btn" data-proj="all" onclick="upsSetProj('all')" style="margin-left:8px;">Todos (Comparação)</button>
-          </div>
-          <div id="ups-no-data-msg" style="display:none;font-size:11px;color:var(--text3);padding:4px 10px;background:var(--bg);border-radius:5px;border:1px solid var(--border);">
-            ⚠ Sem dados — carrega os ficheiros UPS no botão <strong>+ Ficheiros</strong>
-          </div>
-        </div>
-
-        <!-- UPS KPIs -->
-        <div class="kpi-row" id="ups-kpi-row" style="margin-bottom:10px;"></div>
-        <div id="ups-top3-section" style="margin-bottom:10px;"><div class="card"><div class="card-title">Alertas — piores dias</div><div class="alert-row" id="ups-top3-days"></div></div></div>
-
-        <!-- Sub pages -->
-        <div id="ups-page-overview">
-          <div class="row-23" style="margin-bottom:10px;">
-            <div class="card">
-              <div class="card-title">Evolução diária OEE</div>
-              <div style="position:relative;height:230px;"><canvas id="ups-lineChart"></canvas></div>
-              <div class="legend">
-                <span><span class="leg-box" style="background:#1a3a5c;"></span>OEE</span>
-                <span><span class="leg-dash" style="background:#1d9e75;"></span>Disponib.</span>
-                <span><span class="leg-dash" style="background:#f5a623;"></span>Desempenho</span>
-                <span><span class="leg-dash" style="background:#639922;"></span>Qualidade</span>
-                <span><span class="leg-dash" style="background:#aaa;border-top:2px dashed #aaa;height:0;"></span>Tendência</span>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-title">OEE por turno</div>
-              <div style="position:relative;height:230px;"><canvas id="ups-shiftChart"></canvas></div>
-            </div>
+    <!-- ═══ UPS PAGES (mesmos IDs com prefixo ups-) ═══ -->
+    <div id="ups-page-overview" style="display:none;">
+      <div class="row-23" style="margin-bottom:10px;">
+        <div class="card">
+          <div class="card-title">Evolução diária OEE</div>
+          <div style="position:relative;height:230px;"><canvas id="ups-lineChart"></canvas></div>
+          <div class="legend">
+            <span><span class="leg-box" style="background:#1a3a5c;"></span>OEE</span>
+            <span><span class="leg-dash" style="background:#1d9e75;"></span>Disponib.</span>
+            <span><span class="leg-dash" style="background:#f5a623;"></span>Desempenho</span>
+            <span><span class="leg-dash" style="background:#639922;"></span>Qualidade</span>
+            <span><span class="leg-dash" style="background:#aaa;border-top:2px dashed #aaa;height:0;"></span>Tendência</span>
           </div>
         </div>
-
-        <div id="ups-page-heatmap" style="display:none;">
-          <div class="card">
-            <div class="card-title">Heatmap OEE — máquina × dia</div>
-            <div class="heatmap-wrap"><div id="ups-heatmap-container"></div></div>
-            <div class="legend" style="margin-top:10px;">
-              <span><span class="leg-box" style="background:#1d9e75;"></span>≥ 80%</span>
-              <span><span class="leg-box" style="background:#97c459;"></span>70–80%</span>
-              <span><span class="leg-box" style="background:#f5a623;"></span>55–70%</span>
-              <span><span class="leg-box" style="background:#e24b4a;"></span>&lt; 55%</span>
-            </div>
-          </div>
+        <div class="card">
+          <div class="card-title">OEE por turno</div>
+          <div style="position:relative;height:230px;"><canvas id="ups-shiftChart"></canvas></div>
         </div>
+      </div>
+    </div>
 
-        <div id="ups-page-machines" style="display:none;">
-          <div class="card" style="margin-bottom:10px;">
-            <div class="card-title">OEE por máquina</div>
-            <div style="position:relative;height:230px;"><canvas id="ups-machineOEEChart"></canvas></div>
-          </div>
-          <div class="card">
-            <div class="card-title">Componentes por máquina</div>
-            <div style="position:relative;height:230px;"><canvas id="ups-machineCompChart"></canvas></div>
-          </div>
+    <div id="ups-page-heatmap" style="display:none;">
+      <div class="card">
+        <div class="card-title">Heatmap OEE — máquina × dia</div>
+        <div class="heatmap-wrap"><div id="ups-heatmap-container"></div></div>
+        <div class="legend" style="margin-top:10px;">
+          <span><span class="leg-box" style="background:#1d9e75;"></span>≥ 80%</span>
+          <span><span class="leg-box" style="background:#97c459;"></span>70–80%</span>
+          <span><span class="leg-box" style="background:#f5a623;"></span>55–70%</span>
+          <span><span class="leg-box" style="background:#e24b4a;"></span>&lt; 55%</span>
         </div>
+      </div>
+    </div>
 
-        <div id="ups-page-stops" style="display:none;">
-          <div class="row-2">
-            <div class="card"><div class="card-title">Paragens — % do total</div><div id="ups-stop-bars" style="margin-top:4px;"></div></div>
-            <div class="card"><div class="card-title">Distribuição paragens</div><div style="position:relative;height:260px;"><canvas id="ups-stopDoughnut"></canvas></div></div>
-          </div>
-        </div>
+    <div id="ups-page-machines" style="display:none;">
+      <div class="card" style="margin-bottom:10px;">
+        <div class="card-title">OEE por máquina</div>
+        <div style="position:relative;height:230px;"><canvas id="ups-machineOEEChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Componentes por máquina</div>
+        <div style="position:relative;height:230px;"><canvas id="ups-machineCompChart"></canvas></div>
+      </div>
+    </div>
 
-        <div id="ups-page-defects" style="display:none;">
-          <div class="row-2">
-            <div class="card"><div class="card-title">Defeitos — % do total</div><div id="ups-defect-bars" style="margin-top:4px;"></div></div>
-            <div class="card"><div class="card-title">Distribuição defeitos</div><div style="position:relative;height:280px;"><canvas id="ups-defectDoughnut"></canvas></div></div>
-          </div>
-        </div>
+    <div id="ups-page-stops" style="display:none;">
+      <div class="row-2">
+        <div class="card"><div class="card-title">Paragens — % do total</div><div id="ups-stop-bars" style="margin-top:4px;"></div></div>
+        <div class="card"><div class="card-title">Distribuição paragens</div><div style="position:relative;height:260px;"><canvas id="ups-stopDoughnut"></canvas></div></div>
+      </div>
+    </div>
 
-        <div id="ups-page-compare" style="display:none;">
-          <div class="row-2" style="margin-bottom:10px;" id="ups-compare-kpis"></div>
-          <div class="row-2" style="margin-bottom:10px;">
-            <div class="card" id="ups-card-line-a"><div class="card-title" id="ups-title-line-a">Mês A</div><div style="position:relative;height:200px;"><canvas id="ups-lineChartA"></canvas></div></div>
-            <div class="card" id="ups-card-line-b"><div class="card-title" id="ups-title-line-b">Mês B</div><div style="position:relative;height:200px;"><canvas id="ups-lineChartB"></canvas></div></div>
-          </div>
-          <div class="card"><div class="card-title">Componentes — comparação por mês</div><div style="position:relative;height:220px;"><canvas id="ups-compareBarChart"></canvas></div></div>
-        </div>
+    <div id="ups-page-defects" style="display:none;">
+      <div class="row-2">
+        <div class="card"><div class="card-title">Defeitos — % do total</div><div id="ups-defect-bars" style="margin-top:4px;"></div></div>
+        <div class="card"><div class="card-title">Distribuição defeitos</div><div style="position:relative;height:280px;"><canvas id="ups-defectDoughnut"></canvas></div></div>
+      </div>
+    </div>
 
-        <div id="ups-page-refs" style="display:none;">
-          <div class="card" style="margin-bottom:10px;">
-            <div class="card-title">OEE por referência</div>
-            <div style="position:relative;height:240px;"><canvas id="ups-refOEEChart"></canvas></div>
-          </div>
-          <div class="row-2">
-            <div class="card"><div class="card-title">Componentes por referência</div><div style="position:relative;height:220px;"><canvas id="ups-refCompChart"></canvas></div></div>
-            <div class="card"><div class="card-title">Volume produzido</div><div style="position:relative;height:220px;"><canvas id="ups-refVolChart"></canvas></div></div>
-          </div>
-        </div>
+    <div id="ups-page-compare" style="display:none;">
+      <div class="row-2" style="margin-bottom:10px;" id="ups-compare-kpis"></div>
+      <div class="row-2" style="margin-bottom:10px;">
+        <div class="card"><div class="card-title" id="ups-title-line-a">Mês A</div><div style="position:relative;height:200px;"><canvas id="ups-lineChartA"></canvas></div></div>
+        <div class="card"><div class="card-title" id="ups-title-line-b">Mês B</div><div style="position:relative;height:200px;"><canvas id="ups-lineChartB"></canvas></div></div>
+      </div>
+      <div class="card"><div class="card-title">Componentes — comparação por mês</div><div style="position:relative;height:220px;"><canvas id="ups-compareBarChart"></canvas></div></div>
+    </div>
 
-      </div><!-- /ups-content -->
-    </div><!-- /page-ups -->
+    <div id="ups-page-refs" style="display:none;">
+      <div class="card" style="margin-bottom:10px;">
+        <div class="card-title">OEE por referência</div>
+        <div style="position:relative;height:240px;"><canvas id="ups-refOEEChart"></canvas></div>
+      </div>
+      <div class="row-2">
+        <div class="card"><div class="card-title">Componentes por referência</div><div style="position:relative;height:220px;"><canvas id="ups-refCompChart"></canvas></div></div>
+        <div class="card"><div class="card-title">Volume produzido</div><div style="position:relative;height:220px;"><canvas id="ups-refVolChart"></canvas></div></div>
+      </div>
+    </div>
 
-  </div>
-</div>
-</div>
-</div>
+  </div><!-- /body -->
+</div><!-- /main -->
+</div><!-- /content -->
+</div><!-- /shell -->
 
 <script>
 // ── CONSTANTS ──
@@ -1023,41 +1023,80 @@ function hmColor(v){if(v===null||v===undefined)return'#e8edf2';if(v>=.80)return'
 
 // Dispatch filter events to the correct section
 function onFilterChange() {
-  if(currentPage==='ups') upsRefresh();
+  if(currentSection==='ups') upsRefresh();
   else refresh();
 }
 function onClearDates() {
-  if(currentPage==='ups') upsClearDates();
+  if(currentSection==='ups') upsClearDates();
   else clearDates();
 }
 
-// ── PAGE NAVIGATION ──
-function setPage(p){
-  currentPage=p;
-  const injPages=['overview','heatmap','machines','stops','defects','compare','refs'];
-  injPages.forEach(id=>{
-    document.getElementById('page-'+id).style.display=id===p?'block':'none';
-  });
-  document.getElementById('page-ups').style.display=p==='ups'?'block':'none';
-  document.querySelectorAll('.nav-tab').forEach((t,i)=>{
-    const pages=[...injPages,'ups'];
-    t.classList.toggle('active',pages[i]===p);
-  });
+// ── SECTION + PAGE NAVIGATION ──
+let currentSection = 'inj'; // 'inj' | 'ups'
 
-  // Adapt filter panel label and actions to the active section
+const ALL_PAGES = ['overview','heatmap','machines','stops','defects','compare','refs'];
+
+function setSection(sect) {
+  currentSection = sect;
+
+  // Secção buttons
+  document.getElementById('sect-inj').classList.toggle('active', sect==='inj');
+  document.getElementById('sect-ups').classList.toggle('active', sect==='ups');
+
+  // Selector UPS
+  const projBar = document.getElementById('ups-proj-bar');
+  projBar.style.display = sect==='ups' ? 'flex' : 'none';
+
+  // Info strips
+  document.getElementById('info-strip-inj').style.display = sect==='inj' ? '' : 'none';
+  document.getElementById('info-strip-ups').style.display = sect==='ups' ? '' : 'none';
+
+  // Filtros
   const hdr = document.getElementById('fp-header-title');
   const clearBtn = document.getElementById('fp-clear-btn');
-  if(p==='ups') {
+  if(sect==='ups') {
     hdr.firstChild.textContent = 'Filtros — UPS ';
     clearBtn.setAttribute('onclick','upsClearAll()');
-    const hasAny = UPS_PROJECTS.some(proj => upsRows[proj].length > 0);
-    const noDataMsg = document.getElementById('ups-no-data-msg');
-    if(noDataMsg) noDataMsg.style.display = hasAny ? 'none' : 'flex';
-    if(hasAny) { buildUpsFilters(); upsRefresh(); }
+    const hasAny = UPS_PROJECTS.some(p => upsRows[p].length > 0);
+    document.getElementById('ups-no-data-msg').style.display = hasAny ? 'none' : '';
+    if(hasAny) buildUpsFilters();
   } else {
     hdr.firstChild.textContent = 'Filtros — Injeção ';
     clearBtn.setAttribute('onclick','clearAll()');
-    if(ALL_ROWS.length) { buildInjFilters(); refresh(); }
+    if(ALL_ROWS.length) buildInjFilters();
+  }
+
+  // Re-render página actual
+  setPage(currentPage);
+}
+
+function setPage(p) {
+  currentPage = p;
+
+  // Highlight tab de análise
+  document.querySelectorAll('.toolbar .nav-tab:not(#sect-inj):not(#sect-ups)').forEach((t,i) =>
+    t.classList.toggle('active', ALL_PAGES[i] === p)
+  );
+
+  // Mostrar/esconder páginas injeção
+  ALL_PAGES.forEach(id => {
+    const el = document.getElementById('page-'+id);
+    if(el) el.style.display = (currentSection==='inj' && id===p) ? 'block' : 'none';
+  });
+
+  // Mostrar/esconder páginas UPS
+  ALL_PAGES.forEach(id => {
+    const el = document.getElementById('ups-page-'+id);
+    if(el) el.style.display = (currentSection==='ups' && id===p) ? 'block' : 'none';
+  });
+
+  // KPIs e top3 sempre visíveis
+  document.getElementById('top3-section').style.display = 'block';
+
+  if(currentSection==='inj') refresh();
+  else {
+    const hasAny = UPS_PROJECTS.some(p => upsRows[p].length > 0);
+    if(hasAny) upsRefresh();
   }
 }
 
@@ -1066,6 +1105,7 @@ function filterDay(iso){
   document.getElementById('date-to').value=iso;
   sel.weeks=new Set();sel.meses=new Set();
   document.querySelectorAll('.chip[data-key="weeks"].active,.chip[data-key="meses"].active').forEach(c=>c.classList.remove('active'));
+  if(currentSection!=='inj') setSection('inj');
   setPage('overview');
 }
 
@@ -1372,15 +1412,13 @@ const UPS_STOP_LABELS_MAP = {
 let upsFiles = {martur:null, lx3:null, mra2:null};
 let upsRows  = {martur:[], lx3:[], mra2:[]};
 let upsCurrentProj = 'martur';
-let upsCurrentSubPage = 'overview';
 let upsCharts = {};
 let upsMeta = {};
 
 // ── UPS FILE LOADING (called from load screen) ──
 function upsCheckReady() {
   const hasAny = UPS_PROJECTS.some(p => upsRows[p].length > 0);
-  const noDataMsg = document.getElementById('ups-no-data-msg');
-  if(noDataMsg) noDataMsg.style.display = hasAny ? 'none' : 'flex';
+  document.getElementById('ups-no-data-msg').style.display = hasAny ? 'none' : '';
   if(hasAny) {
     const target = upsRows[upsCurrentProj]?.length > 0 ? upsCurrentProj
       : (UPS_PROJECTS.find(p => upsRows[p].length > 0) || 'martur');
@@ -1388,7 +1426,7 @@ function upsCheckReady() {
       b.classList.toggle('active', b.dataset.proj === target);
     });
     upsCurrentProj = target;
-    if(currentPage==='ups') { buildUpsFilters(); upsRefresh(); }
+    if(currentSection==='ups') { buildUpsFilters(); upsRefresh(); }
   }
 }
 
@@ -1594,23 +1632,7 @@ function upsSetProj(proj) {
   document.querySelectorAll('.ups-proj-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.proj === proj);
   });
-  if(currentPage==='ups') buildUpsFilters();
-  upsRefresh();
-}
-
-function upsSetSubPage(sub) {
-  upsCurrentSubPage = sub;
-  // Destroy all UPS charts when switching pages to prevent "canvas in use" errors
-  Object.keys(upsCharts).forEach(k => { try { upsCharts[k].destroy(); } catch(e){} delete upsCharts[k]; });
-  const subs = ['overview','heatmap','machines','stops','defects','compare','refs'];
-  subs.forEach(s => {
-    const el = document.getElementById('ups-page-'+s);
-    if(el) el.style.display = s===sub ? 'block':'none';
-  });
-  document.querySelectorAll('.ups-sub-tab').forEach((t,i) =>
-    t.classList.toggle('active', subs[i]===sub)
-  );
-  upsRefresh();
+  if(currentSection==='ups') { buildUpsFilters(); upsRefresh(); }
 }
 
 function upsDestroyChart(id) {
@@ -1624,13 +1646,16 @@ function upsRefresh() {
   upsMeta = upsBuildMeta(rows);
   upsRenderKPIs(agg.overall);
   upsRenderTop3(agg.byDate);
-  if(upsCurrentSubPage==='overview') upsRenderOverview(agg);
-  if(upsCurrentSubPage==='heatmap')  upsRenderHeatmap(rows);
-  if(upsCurrentSubPage==='machines') upsRenderMachines(agg);
-  if(upsCurrentSubPage==='stops')    upsRenderStops(agg);
-  if(upsCurrentSubPage==='defects')  upsRenderDefects(agg);
-  if(upsCurrentSubPage==='compare')  upsRenderCompare(rows);
-  if(upsCurrentSubPage==='refs')     upsRenderRefs(agg);
+  // Destroy all UPS charts when switching to avoid "canvas in use"
+  Object.keys(upsCharts).forEach(k => { try { upsCharts[k].destroy(); } catch(e){} delete upsCharts[k]; });
+  if(currentPage==='overview') upsRenderOverview(agg);
+  if(currentPage==='heatmap')  upsRenderHeatmap(rows);
+  if(currentPage==='machines') upsRenderMachines(agg);
+  if(currentPage==='stops')    upsRenderStops(agg);
+  if(currentPage==='defects')  upsRenderDefects(agg);
+  if(currentPage==='compare')  upsRenderCompare(rows);
+  if(currentPage==='refs')     upsRenderRefs(agg);
+}
 }
 
 // ── UPS RENDERS ──
