@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard OEE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --navy:#1a3a5c;--blue:#2e6da4;--blue-l:#5b9bd5;
+  --accent:#f5a623;--green:#1d9e75;--red:#e24b4a;--olive:#639922;
+  --bg:#eef1f5;--surface:#fff;--border:#dde3ea;
+  --text:#1a2a3a;--text2:#5a7080;--text3:#8fa8c0;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;min-height:100vh;}
+.shell{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* HEADER */
+.header{background:var(--navy);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.header-brand{display:flex;align-items:center;gap:10px;}
+.header-bar{width:5px;height:28px;background:var(--accent);border-radius:3px;}
+.header-title{font-size:15px;font-weight:600;color:#fff;letter-spacing:.02em;}
+.header-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px;font-weight:300;}
+.header-right{display:flex;align-items:center;gap:8px;}
+.badge{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:3px 9px;color:rgba(255,255,255,.65);font-size:10px;font-weight:500;}
+.btn{border:none;border-radius:5px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);transition:opacity .15s;}
+.btn:hover{opacity:.85;}
+.btn-export{background:var(--accent);color:#7a3f00;}
+.btn-load{background:#fff;color:var(--navy);}
+
+/* LOAD SCREEN */
+#load-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:24px;}
+.load-box{background:var(--surface);border-radius:12px;padding:40px 48px;box-shadow:0 4px 24px rgba(0,0,0,.1);max-width:560px;width:90%;text-align:center;}
+.load-logo{width:7px;height:40px;background:var(--accent);border-radius:3px;margin:0 auto 20px;}
+.load-title{font-size:20px;font-weight:600;color:var(--navy);margin-bottom:6px;}
+.load-sub{font-size:12px;color:var(--text3);margin-bottom:28px;line-height:1.6;}
+.file-zones{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+.file-zone{border:2px dashed var(--border);border-radius:8px;padding:18px;cursor:pointer;transition:all .15s;position:relative;text-align:left;}
+.file-zone:hover,.file-zone.drag{border-color:var(--blue);background:rgba(46,109,164,.04);}
+.file-zone.loaded{border-color:var(--green);background:rgba(29,158,117,.04);border-style:solid;}
+.fz-header{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+.fz-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.fz-icon.excel{background:#e8f4ec;color:#1d7a3a;}
+.fz-name{font-size:12px;font-weight:600;color:var(--text);}
+.fz-status{font-size:10px;color:var(--text3);margin-top:2px;}
+.fz-status.ok{color:var(--green);}
+.fz-status.err{color:var(--red);}
+.fz-input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.fz-badge{position:absolute;top:10px;right:12px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;}
+.fz-badge.ok{background:#e8f4ec;color:#1d7a3a;}
+.load-hint{font-size:10px;color:var(--text3);margin-bottom:20px;line-height:1.6;}
+.btn-analyze{width:100%;padding:11px;font-size:13px;font-weight:600;border:none;border-radius:7px;background:var(--navy);color:#fff;cursor:pointer;font-family:var(--font);transition:opacity .15s;opacity:.4;pointer-events:none;}
+.btn-analyze.ready{opacity:1;pointer-events:auto;}
+.btn-analyze.ready:hover{opacity:.88;}
+.load-progress{font-size:11px;color:var(--blue);margin-top:10px;min-height:16px;}
+.speed-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;}
+.speed-table th{background:var(--bg);padding:4px 8px;font-weight:600;color:var(--text3);text-align:left;border:1px solid var(--border);}
+.speed-table td{padding:4px 8px;border:1px solid var(--border);color:var(--text2);}
+.speed-table td input{width:60px;border:1px solid var(--border);border-radius:3px;padding:2px 5px;font-size:11px;font-family:var(--mono);text-align:center;}
+.speed-table td input.missing{border-color:var(--accent);background:#fffbe6;}
+
+/* CONTENT */
+.content{display:flex;flex:1;overflow:hidden;}
+
+/* FILTER PANEL */
+.filter-panel{width:196px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;}
+.fp-header{padding:9px 14px 7px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.fp-clear{font-size:10px;color:var(--blue);cursor:pointer;font-weight:500;text-transform:none;letter-spacing:0;}
+.fp-clear:hover{color:var(--navy);}
+.fp-section{border-bottom:1px solid var(--border);}
+.fp-stitle{padding:7px 14px 5px;font-size:10px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.06em;cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;}
+.fp-stitle:hover{background:var(--bg);}
+.fp-arrow{font-size:9px;color:var(--text3);transition:transform .15s;}
+.fp-arrow.open{transform:rotate(90deg);}
+.fp-body{padding:4px 10px 8px;}
+.chip{display:inline-flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:3px 8px;margin:2px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;font-family:var(--font);}
+.chip:hover{border-color:var(--blue);color:var(--navy);}
+.chip.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.chk-row{display:flex;align-items:center;gap:6px;padding:4px 4px;font-size:11px;color:var(--text2);cursor:pointer;}
+.chk-row input{cursor:pointer;accent-color:var(--navy);}
+.date-inp{font-size:11px;padding:4px 7px;border:1px solid var(--border);border-radius:4px;font-family:var(--font);background:var(--bg);color:var(--text);width:100%;margin-bottom:4px;}
+.date-inp:focus{outline:none;border-color:var(--blue);}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 18px;display:flex;align-items:center;height:40px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.04);gap:2px;}
+.nav-tab{font-family:var(--font);font-size:12px;font-weight:500;padding:0 13px;height:40px;border:none;background:transparent;color:var(--text2);cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;}
+.nav-tab:hover{color:var(--navy);}
+.nav-tab.active{color:var(--navy);border-bottom-color:var(--accent);}
+.body{flex:1;overflow-y:auto;padding:12px 16px 20px;display:flex;flex-direction:column;gap:10px;}
+
+/* ACTIVE BAR */
+.active-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:5px 10px;background:rgba(26,58,92,.04);border:1px solid rgba(26,58,92,.1);border-radius:6px;}
+.abar-lbl{font-weight:600;color:var(--navy);font-size:10px;text-transform:uppercase;letter-spacing:.05em;}
+.atag{display:inline-flex;align-items:center;gap:3px;background:var(--navy);color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:500;}
+.atag .x{cursor:pointer;opacity:.7;margin-left:1px;}
+.atag .x:hover{opacity:1;}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.kpi-card{background:var(--surface);border-radius:7px;padding:12px 14px 10px;border-top:3px solid;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.kpi-lbl{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;}
+.kpi-val{font-size:28px;font-weight:600;font-family:var(--mono);line-height:1;margin-bottom:3px;}
+.kpi-sub{font-size:10px;color:var(--text3);margin-bottom:7px;}
+.kpi-bar{height:3px;background:var(--bg);border-radius:2px;}
+.kpi-bar-fill{height:100%;border-radius:2px;transition:width .4s;}
+
+/* CARDS */
+.card{background:var(--surface);border-radius:7px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.card-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bg);display:flex;align-items:center;gap:5px;}
+.card-title::before{content:'';width:3px;height:11px;background:var(--accent);border-radius:2px;display:inline-block;flex-shrink:0;}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.row-23{display:grid;grid-template-columns:2fr 1fr;gap:10px;}
+
+/* LEGEND */
+.legend{display:flex;gap:12px;margin-top:7px;flex-wrap:wrap;}
+.legend span{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);}
+.leg-box{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.leg-dash{width:14px;height:2px;flex-shrink:0;}
+
+/* HBARS */
+.hbar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.hbar-lbl{font-size:11px;color:var(--text2);min-width:118px;text-align:right;}
+.hbar-track{flex:1;height:17px;background:var(--bg);border-radius:3px;overflow:hidden;}
+.hbar-fill{height:100%;border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;transition:width .35s;}
+.hbar-fill-lbl{font-size:10px;font-weight:600;color:rgba(255,255,255,.9);font-family:var(--mono);}
+.hbar-val{font-size:11px;font-weight:600;color:var(--navy);min-width:38px;font-family:var(--mono);}
+
+/* ALERT CARDS */
+.alert-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.alert-card{background:var(--surface);border-radius:7px;padding:10px 12px;border-left:3px solid var(--red);box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:pointer;}
+.alert-card:hover{opacity:.85;}
+.alert-card.warn{border-left-color:var(--accent);}
+.alert-card.ok{border-left-color:var(--green);}
+.alert-rank{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;}
+.alert-val{font-size:20px;font-weight:600;font-family:var(--mono);}
+
+/* HEATMAP */
+.heatmap-wrap{overflow-x:auto;}
+.hm-table{border-collapse:collapse;font-size:10px;font-family:var(--mono);}
+.hm-table th{background:var(--bg);padding:3px 6px;font-weight:600;color:var(--text3);border:1px solid var(--border);white-space:nowrap;font-family:var(--font);}
+.hm-table td{padding:2px 4px;border:1px solid var(--border);text-align:center;min-width:36px;cursor:pointer;font-size:10px;}
+.hm-table td:hover{opacity:.75;}
+.hm-mach{font-weight:600;color:var(--text2);font-family:var(--font);background:var(--bg);text-align:left!important;padding-left:8px!important;}
+
+/* INFO STRIP */
+.info-strip{background:rgba(26,58,92,.04);border:1px solid rgba(26,58,92,.1);border-radius:6px;padding:6px 14px;font-size:10px;color:var(--text2);display:flex;gap:16px;flex-wrap:wrap;align-items:center;}
+.info-item strong{color:var(--navy);font-weight:600;}
+
+/* UPS SECTION */
+.ups-selector{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.ups-proj-btn{border:2px solid var(--border);border-radius:6px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);background:var(--surface);color:var(--text2);transition:all .15s;}
+.ups-proj-btn:hover{border-color:var(--blue);color:var(--navy);}
+.ups-proj-btn.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.ups-proj-btn.martur.active{background:#1a3a5c;border-color:#1a3a5c;}
+.ups-proj-btn.lx3.active{background:#1d6e8a;border-color:#1d6e8a;}
+.ups-proj-btn.mra2.active{background:#39568a;border-color:#39568a;}
+.ups-load-zone{border:2px dashed var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;position:relative;transition:all .15s;}
+.ups-load-zone:hover,.ups-load-zone.drag{border-color:var(--blue);background:rgba(46,109,164,.04);}
+.ups-load-zone.loaded{border-color:var(--green);border-style:solid;background:rgba(29,158,117,.04);}
+.ups-load-zones{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.ups-load-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;color:#fff;text-transform:uppercase;letter-spacing:.04em;}
+.ups-load-tag.martur{background:#1a3a5c;}
+.ups-load-tag.lx3{background:#1d6e8a;}
+.ups-load-tag.mra2{background:#39568a;}
+.ups-sub-nav{display:flex;gap:2px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:0;}
+.ups-sub-tab{font-family:var(--font);font-size:11px;font-weight:500;padding:5px 12px;border:none;background:transparent;color:var(--text2);cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;margin-bottom:-1px;}
+.ups-sub-tab:hover{color:var(--navy);}
+.ups-sub-tab.active{color:var(--navy);border-bottom-color:var(--accent);}
+
+@media print{
+  .filter-panel,.toolbar,.btn,.active-bar,#load-screen{display:none!important;}
+  .shell{height:auto;} .content{display:block;} .main{overflow:visible;} .body{overflow:visible;}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- LOAD SCREEN -->
+<div id="load-screen">
+  <div class="load-box">
+    <div class="load-logo"></div>
+    <div class="load-title">Dashboard OEE</div>
+    <div class="load-sub">Carrega um ou mais ficheiros Excel para começar.<br>Os dados ficam apenas no teu browser — nada é enviado para servidores.</div>
+
+    <div class="file-zones" id="file-zones">
+      <!-- zones built dynamically -->
+    </div>
+
+    <div id="speed-section" style="display:none;text-align:left;margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:6px;">Referências sem velocidade definida — preenche antes de continuar:</div>
+      <table class="speed-table">
+        <thead><tr><th>Referência</th><th>Peças/hora</th></tr></thead>
+        <tbody id="speed-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="load-hint">
+      Formatos suportados: <strong>.xlsx</strong> e <strong>.xls</strong><br>
+      Colunas obrigatórias: Data, Turno, Maquina, Referencia, Produzidas_OK, Sucata_NOK + colunas de paragens e defeitos
+    </div>
+
+    <button class="btn-analyze" id="btn-analyze" onclick="analyzeAll()">Analisar dados</button>
+    <div class="load-progress" id="load-progress"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-brand">
+    <div class="header-bar"></div>
+    <div>
+      <div class="header-title" id="dash-title">Dashboard OEE</div>
+      <div class="header-sub" id="dash-sub">480 min − 40 pausas = 440 min planeados/turno</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="badge" id="badge-reg">— Registos</span>
+    <span class="badge" id="badge-maq">— Máquinas</span>
+    <span class="badge" id="badge-period">—</span>
+    <button class="btn btn-load" onclick="showLoadScreen()">+ Ficheiros</button>
+    <button class="btn btn-export" onclick="exportCSV()">⬇ CSV</button>
+  </div>
+</div>
+
+<div class="content">
+<!-- FILTER PANEL -->
+<div class="filter-panel">
+  <div class="fp-header">Filtros <span class="fp-clear" onclick="clearAll()">Limpar</span></div>
+  <div class="fp-section">
+    <div class="fp-stitle" onclick="toggleSec('s-fs')">Fins de semana <span class="fp-arrow open" id="arr-s-fs">▶</span></div>
+    <div class="fp-body" id="s-fs">
+      <label class="chk-row"><input type="checkbox" id="chk-sat" checked onchange="refresh()"> Incluir sábados</label>
+      <label class="chk-row"><input type="checkbox" id="chk-sun" checked onchange="refresh()"> Incluir domingos</label>
+    </div>
+  </div>
+  <div class="fp-section">
+    <div class="fp-stitle" onclick="toggleSec('s-mes')">Mês <span class="fp-arrow open" id="arr-s-mes">▶</span></div>
+    <div class="fp-body" id="s-mes" style="padding-top:6px;"></div>
+  </div>
+  <div class="fp-section">
+    <div class="fp-stitle" onclick="toggleSec('s-week')">Semana <span class="fp-arrow open" id="arr-s-week">▶</span></div>
+    <div class="fp-body" id="s-week" style="padding-top:6px;"></div>
+  </div>
+  <div class="fp-section">
+    <div class="fp-stitle" onclick="toggleSec('s-date')">Intervalo de datas <span class="fp-arrow open" id="arr-s-date">▶</span></div>
+    <div class="fp-body" id="s-date" style="padding-top:6px;">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">De</div>
+      <input type="date" class="date-inp" id="date-from" onchange="refresh()">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Até</div>
+      <input type="date" class="date-inp" id="date-to" onchange="refresh()">
+      <span class="fp-clear" onclick="clearDates()" style="display:block;margin-top:4px;">Limpar datas</span>
+    </div>
+  </div>
+  <div class="fp-section">
+    <div class="fp-stitle" onclick="toggleSec('s-turno')">Turno <span class="fp-arrow open" id="arr-s-turno">▶</span></div>
+    <div class="fp-body" id="s-turno" style="padding-top:6px;"></div>
+  </div>
+  <div class="fp-section">
+    <div class="fp-stitle" onclick="toggleSec('s-maq')">Máquina <span class="fp-arrow open" id="arr-s-maq">▶</span></div>
+    <div class="fp-body" id="s-maq" style="padding-top:6px;"></div>
+  </div>
+  <div class="fp-section">
+    <div class="fp-stitle" onclick="toggleSec('s-ref')">Referência <span class="fp-arrow open" id="arr-s-ref">▶</span></div>
+    <div class="fp-body" id="s-ref" style="padding-top:6px;"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="toolbar">
+    <button class="nav-tab active" onclick="setPage('overview')">Visão Geral</button>
+    <button class="nav-tab" onclick="setPage('heatmap')">Heatmap</button>
+    <button class="nav-tab" onclick="setPage('machines')">Máquinas</button>
+    <button class="nav-tab" onclick="setPage('stops')">Paragens</button>
+    <button class="nav-tab" onclick="setPage('defects')">Sucata</button>
+    <button class="nav-tab" onclick="setPage('compare')">Comparar meses</button>
+    <button class="nav-tab" onclick="setPage('refs')">Referências</button>
+    <button class="nav-tab" onclick="setPage('ups')" id="tab-ups" style="border-left:2px solid var(--border);margin-left:6px;padding-left:15px;">&#11042; UPS</button>
+  </div>
+  <div class="body">
+    <div class="info-strip">
+      <div class="info-item"><strong>Perf.:</strong> (Prod / Tempo disp.) / Vel. ideal</div>
+      <div class="info-item"><strong>Disponib.:</strong> (440 − paragens) / 440 min</div>
+      <div class="info-item"><strong>Qualidade:</strong> OK / (OK + NOK)</div>
+    </div>
+    <div id="active-bar" class="active-bar" style="display:none;"></div>
+    <div class="kpi-row" id="kpi-row"></div>
+    <div id="top3-section"><div class="card"><div class="card-title">Alertas — piores dias</div><div class="alert-row" id="top3-days"></div></div></div>
+
+    <div id="page-overview">
+      <div class="row-23" style="margin-bottom:10px;">
+        <div class="card">
+          <div class="card-title">Evolução diária OEE <span style="font-size:9px;color:var(--text3);font-weight:400;margin-left:4px;">(clica num dia para filtrar)</span></div>
+          <div style="position:relative;height:230px;"><canvas id="lineChart"></canvas></div>
+          <div class="legend">
+            <span><span class="leg-box" style="background:#1a3a5c;"></span>OEE</span>
+            <span><span class="leg-dash" style="background:#1d9e75;"></span>Disponib.</span>
+            <span><span class="leg-dash" style="background:#f5a623;"></span>Perf.</span>
+            <span><span class="leg-dash" style="background:#639922;"></span>Qual.</span>
+            <span><span class="leg-dash" style="background:#aaa;border-top:2px dashed #aaa;height:0;"></span>Tendência</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">OEE por turno</div>
+          <div style="position:relative;height:230px;"><canvas id="shiftChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-heatmap" style="display:none;">
+      <div class="card">
+        <div class="card-title">Heatmap OEE — máquina × dia <span style="font-size:9px;color:var(--text3);font-weight:400;margin-left:4px;">(clica para filtrar)</span></div>
+        <div class="heatmap-wrap"><div id="heatmap-container"></div></div>
+        <div class="legend" style="margin-top:10px;">
+          <span><span class="leg-box" style="background:#1d9e75;"></span>≥ 80%</span>
+          <span><span class="leg-box" style="background:#97c459;"></span>70–80%</span>
+          <span><span class="leg-box" style="background:#f5a623;"></span>55–70%</span>
+          <span><span class="leg-box" style="background:#e24b4a;"></span>&lt; 55%</span>
+          <span><span class="leg-box" style="background:#e8edf2;"></span>Sem dados</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-machines" style="display:none;">
+      <div class="card" style="margin-bottom:10px;">
+        <div class="card-title">OEE por máquina</div>
+        <div style="position:relative;height:230px;"><canvas id="machineOEEChart"></canvas></div>
+        <div class="legend">
+          <span><span class="leg-box" style="background:#1d9e75;"></span>≥ 75%</span>
+          <span><span class="leg-box" style="background:#f5a623;"></span>60–75%</span>
+          <span><span class="leg-box" style="background:#e24b4a;"></span>&lt; 60%</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Componentes por máquina</div>
+        <div style="position:relative;height:230px;"><canvas id="machineCompChart"></canvas></div>
+        <div class="legend">
+          <span><span class="leg-box" style="background:#1d9e75;"></span>Disponib.</span>
+          <span><span class="leg-box" style="background:#f5a623;"></span>Performance</span>
+          <span><span class="leg-box" style="background:#639922;"></span>Qualidade</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-stops" style="display:none;">
+      <div class="row-2">
+        <div class="card"><div class="card-title">Paragens — % do total</div><div id="stop-bars" style="margin-top:4px;"></div></div>
+        <div class="card"><div class="card-title">Distribuição paragens</div><div style="position:relative;height:260px;"><canvas id="stopDoughnut"></canvas></div></div>
+      </div>
+    </div>
+
+    <div id="page-defects" style="display:none;">
+      <div class="row-2">
+        <div class="card"><div class="card-title">Defeitos — % do total</div><div id="defect-bars" style="margin-top:4px;"></div></div>
+        <div class="card"><div class="card-title">Distribuição defeitos</div><div style="position:relative;height:280px;"><canvas id="defectDoughnut"></canvas></div></div>
+      </div>
+    </div>
+
+    <div id="page-compare" style="display:none;">
+      <div class="row-2" style="margin-bottom:10px;" id="compare-kpis"></div>
+      <div class="row-2" style="margin-bottom:10px;">
+        <div class="card" id="card-line-a"><div class="card-title" id="title-line-a">Mês A</div><div style="position:relative;height:200px;"><canvas id="lineChartA"></canvas></div></div>
+        <div class="card" id="card-line-b"><div class="card-title" id="title-line-b">Mês B</div><div style="position:relative;height:200px;"><canvas id="lineChartB"></canvas></div></div>
+      </div>
+      <div class="card"><div class="card-title">Componentes — comparação por mês</div><div style="position:relative;height:220px;"><canvas id="compareBarChart"></canvas></div></div>
+    </div>
+
+    <div id="page-refs" style="display:none;">
+      <div class="card" style="margin-bottom:10px;">
+        <div class="card-title">OEE por referência</div>
+        <div style="position:relative;height:240px;"><canvas id="refOEEChart"></canvas></div>
+      </div>
+      <div class="row-2">
+        <div class="card"><div class="card-title">Componentes por referência</div><div style="position:relative;height:220px;"><canvas id="refCompChart"></canvas></div></div>
+        <div class="card"><div class="card-title">Volume produzido</div><div style="position:relative;height:220px;"><canvas id="refVolChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- UPS PAGE -->
+    <div id="page-ups" style="display:none;">
+      <!-- Upload zones -->
+      <div id="ups-upload-panel" class="card" style="margin-bottom:12px;">
+        <div class="card-title">Unidade UPS — Carregar ficheiros</div>
+        <div class="ups-load-zones">
+          <div class="ups-load-zone" id="ups-fz-martur" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDrop(event,'martur')">
+            <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFile(event,'martur')">
+            <span class="ups-load-tag martur">Martur</span>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--text);" id="ups-fname-martur">Clica ou arrasta ficheiro Martur (.xlsx)</div>
+              <div style="font-size:10px;color:var(--text3);" id="ups-fstatus-martur">Aguarda ficheiro</div>
+            </div>
+            <span id="ups-fbadge-martur" style="display:none;margin-left:auto;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
+          </div>
+          <div class="ups-load-zone" id="ups-fz-lx3" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDrop(event,'lx3')">
+            <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFile(event,'lx3')">
+            <span class="ups-load-tag lx3">LX3</span>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--text);" id="ups-fname-lx3">Clica ou arrasta ficheiro LX3 (.xlsx)</div>
+              <div style="font-size:10px;color:var(--text3);" id="ups-fstatus-lx3">Aguarda ficheiro</div>
+            </div>
+            <span id="ups-fbadge-lx3" style="display:none;margin-left:auto;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
+          </div>
+          <div class="ups-load-zone" id="ups-fz-mra2" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDrop(event,'mra2')">
+            <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFile(event,'mra2')">
+            <span class="ups-load-tag mra2">MRA2</span>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--text);" id="ups-fname-mra2">Clica ou arrasta ficheiro MRA2 (.xlsx)</div>
+              <div style="font-size:10px;color:var(--text3);" id="ups-fstatus-mra2">Aguarda ficheiro</div>
+            </div>
+            <span id="ups-fbadge-mra2" style="display:none;margin-left:auto;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);">Colunas esperadas: Data: Dia, Turno, Maquina, Referencia, Pok, Pnok + colunas de paragens e defeitos</div>
+      </div>
+
+      <!-- Project selector -->
+      <div id="ups-content" style="display:none;">
+        <div class="ups-selector">
+          <button class="ups-proj-btn martur active" data-proj="martur" onclick="upsSetProj('martur')">Martur</button>
+          <button class="ups-proj-btn lx3" data-proj="lx3" onclick="upsSetProj('lx3')">LX3</button>
+          <button class="ups-proj-btn mra2" data-proj="mra2" onclick="upsSetProj('mra2')">MRA2</button>
+          <button class="ups-proj-btn" data-proj="all" onclick="upsSetProj('all')" style="margin-left:8px;">Todos (Comparação)</button>
+        </div>
+
+        <!-- Sub navigation -->
+        <div class="ups-sub-nav">
+          <button class="ups-sub-tab active" onclick="upsSetSubPage('overview')">Visão Geral</button>
+          <button class="ups-sub-tab" onclick="upsSetSubPage('heatmap')">Heatmap</button>
+          <button class="ups-sub-tab" onclick="upsSetSubPage('machines')">Máquinas</button>
+          <button class="ups-sub-tab" onclick="upsSetSubPage('stops')">Paragens</button>
+          <button class="ups-sub-tab" onclick="upsSetSubPage('defects')">Sucata</button>
+          <button class="ups-sub-tab" onclick="upsSetSubPage('compare')">Comparar meses</button>
+          <button class="ups-sub-tab" onclick="upsSetSubPage('refs')">Referências</button>
+        </div>
+
+        <!-- UPS KPIs -->
+        <div class="kpi-row" id="ups-kpi-row" style="margin-bottom:10px;"></div>
+        <div id="ups-top3-section" style="margin-bottom:10px;"><div class="card"><div class="card-title">Alertas — piores dias</div><div class="alert-row" id="ups-top3-days"></div></div></div>
+
+        <!-- Sub pages -->
+        <div id="ups-page-overview">
+          <div class="row-23" style="margin-bottom:10px;">
+            <div class="card">
+              <div class="card-title">Evolução diária OEE</div>
+              <div style="position:relative;height:230px;"><canvas id="ups-lineChart"></canvas></div>
+              <div class="legend">
+                <span><span class="leg-box" style="background:#1a3a5c;"></span>OEE</span>
+                <span><span class="leg-dash" style="background:#1d9e75;"></span>Disponib.</span>
+                <span><span class="leg-dash" style="background:#f5a623;"></span>Desempenho</span>
+                <span><span class="leg-dash" style="background:#639922;"></span>Qualidade</span>
+                <span><span class="leg-dash" style="background:#aaa;border-top:2px dashed #aaa;height:0;"></span>Tendência</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">OEE por turno</div>
+              <div style="position:relative;height:230px;"><canvas id="ups-shiftChart"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="ups-page-heatmap" style="display:none;">
+          <div class="card">
+            <div class="card-title">Heatmap OEE — máquina × dia</div>
+            <div class="heatmap-wrap"><div id="ups-heatmap-container"></div></div>
+            <div class="legend" style="margin-top:10px;">
+              <span><span class="leg-box" style="background:#1d9e75;"></span>≥ 80%</span>
+              <span><span class="leg-box" style="background:#97c459;"></span>70–80%</span>
+              <span><span class="leg-box" style="background:#f5a623;"></span>55–70%</span>
+              <span><span class="leg-box" style="background:#e24b4a;"></span>&lt; 55%</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="ups-page-machines" style="display:none;">
+          <div class="card" style="margin-bottom:10px;">
+            <div class="card-title">OEE por máquina</div>
+            <div style="position:relative;height:230px;"><canvas id="ups-machineOEEChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Componentes por máquina</div>
+            <div style="position:relative;height:230px;"><canvas id="ups-machineCompChart"></canvas></div>
+          </div>
+        </div>
+
+        <div id="ups-page-stops" style="display:none;">
+          <div class="row-2">
+            <div class="card"><div class="card-title">Paragens — % do total</div><div id="ups-stop-bars" style="margin-top:4px;"></div></div>
+            <div class="card"><div class="card-title">Distribuição paragens</div><div style="position:relative;height:260px;"><canvas id="ups-stopDoughnut"></canvas></div></div>
+          </div>
+        </div>
+
+        <div id="ups-page-defects" style="display:none;">
+          <div class="row-2">
+            <div class="card"><div class="card-title">Defeitos — % do total</div><div id="ups-defect-bars" style="margin-top:4px;"></div></div>
+            <div class="card"><div class="card-title">Distribuição defeitos</div><div style="position:relative;height:280px;"><canvas id="ups-defectDoughnut"></canvas></div></div>
+          </div>
+        </div>
+
+        <div id="ups-page-compare" style="display:none;">
+          <div class="row-2" style="margin-bottom:10px;" id="ups-compare-kpis"></div>
+          <div class="row-2" style="margin-bottom:10px;">
+            <div class="card" id="ups-card-line-a"><div class="card-title" id="ups-title-line-a">Mês A</div><div style="position:relative;height:200px;"><canvas id="ups-lineChartA"></canvas></div></div>
+            <div class="card" id="ups-card-line-b"><div class="card-title" id="ups-title-line-b">Mês B</div><div style="position:relative;height:200px;"><canvas id="ups-lineChartB"></canvas></div></div>
+          </div>
+          <div class="card"><div class="card-title">Componentes — comparação por mês</div><div style="position:relative;height:220px;"><canvas id="ups-compareBarChart"></canvas></div></div>
+        </div>
+
+        <div id="ups-page-refs" style="display:none;">
+          <div class="card" style="margin-bottom:10px;">
+            <div class="card-title">OEE por referência</div>
+            <div style="position:relative;height:240px;"><canvas id="ups-refOEEChart"></canvas></div>
+          </div>
+          <div class="row-2">
+            <div class="card"><div class="card-title">Componentes por referência</div><div style="position:relative;height:220px;"><canvas id="ups-refCompChart"></canvas></div></div>
+            <div class="card"><div class="card-title">Volume produzido</div><div style="position:relative;height:220px;"><canvas id="ups-refVolChart"></canvas></div></div>
+          </div>
+        </div>
+
+      </div><!-- /ups-content -->
+    </div><!-- /page-ups -->
+
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+// ── CONSTANTS ──
+const TURNO_MIN = 440;
+const STOP_COLS = ['Avaria','Falta_Material','Falta_Recurso','ST_Setup','MT_Manutencao','MP_Materia_Prima','PQ_Qualidade','PA_Afinacao','SH_Shutdown'];
+const STOP_LABELS = {Avaria:'Avaria',Falta_Material:'Falta Material',Falta_Recurso:'Falta Recurso',ST_Setup:'Setup',MT_Manutencao:'Manutenção',MP_Materia_Prima:'Matéria Prima',PQ_Qualidade:'Qualidade',PA_Afinacao:'Afinação',SH_Shutdown:'Shutdown'};
+const DEF_COLS = ['Arame_Vista','Bolhas_Ar','Gito','Queimadas','Empenadas','Partidas','Deformadas','Oxidadas','Brancas','Gancho_Largo','Furo','Rebarbas','Sujas','Gancho_Danificado','Arame_Partido','Afinacao','Pino_NOK','Falha_Injecao_Arranque','Falha_Injecao_Processo'];
+const DEF_LABELS = {Arame_Vista:'Arame Vista',Bolhas_Ar:'Bolhas Ar',Gito:'Gito',Queimadas:'Queimadas',Empenadas:'Empenadas',Partidas:'Partidas',Deformadas:'Deformadas',Oxidadas:'Oxidadas',Brancas:'Brancas',Gancho_Largo:'Gancho Largo',Furo:'Furo',Rebarbas:'Rebarbas',Sujas:'Sujas',Gancho_Danificado:'Gancho Danif.',Arame_Partido:'Arame Partido',Afinacao:'Afinação',Pino_NOK:'Pino NOK',Falha_Injecao_Arranque:'Falha Inj. Arranque',Falha_Injecao_Processo:'Falha Inj. Processo'};
+// Default speeds — user can add more via the load screen
+const DEFAULT_SPEEDS = {
+  '125x':70,'247 1 2':150,'247 3 4':150,'247 5 6':150,'247 7 8':150,
+  '504x':70,'558':150,'614 1 2':150,'615 1 2':150,'615 3 4':150,
+  '992 1 2':150,'992 3 4':150,'AMG 401':70,'AMG 676':70,
+  'DAG':400,'DCROSS':70,'MARTUR 1 2':150,'MARTUR 3 4':150,
+  'MQB':110,'P64':70,'Porsche':70,'V769':70,'692X':110,'036x':110
+};
+const STOP_COLORS = ['#1a3a5c','#2e6da4','#5b9bd5','#f5a623','#f0a030','#e24b4a','#e87070','#a8cce8','#c8dff2'];
+const DEF_COLORS  = ['#1a3a5c','#2e6da4','#5b9bd5','#7ab3e0','#a8cce8','#c8dff2','#f5a623','#f0c060','#e8d090','#e24b4a','#e87070','#f0a0a0','#639922','#97c459','#c0dd97','#bbb'];
+const gc='rgba(0,0,0,.05)', tc='#8fa8c0';
+
+let ALL_ROWS = [];
+let META = {};
+let userSpeeds = {...DEFAULT_SPEEDS};
+let loadedFiles = [];
+let sel = {meses:new Set(),weeks:new Set(),turnos:new Set(),maquinas:new Set(),refs:new Set()};
+let currentPage = 'overview';
+let charts = {};
+let filteredRows = [];
+
+// ── LOAD SCREEN ──
+const MAX_FILES = 6;
+
+function initLoadScreen() {
+  const zones = document.getElementById('file-zones');
+  zones.innerHTML = '';
+  for(let i=0; i<MAX_FILES; i++) {
+    const loaded = loadedFiles[i];
+    zones.innerHTML += `
+      <div class="file-zone ${loaded?'loaded':''}" id="fz-${i}" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,${i})">
+        <input type="file" class="fz-input" accept=".xlsx,.xls" onchange="handleFile(event,${i})">
+        <div class="fz-header">
+          <div class="fz-icon excel">📊</div>
+          <div>
+            <div class="fz-name">${loaded ? loaded.name : `Ficheiro ${i+1}${i===0?' (obrigatório)':' (opcional)'}`}</div>
+            <div class="fz-status ${loaded?'ok':''}">${loaded ? `✓ ${loaded.rows} linhas · ${loaded.period}` : 'Clica ou arrasta um ficheiro .xlsx'}</div>
+          </div>
+        </div>
+        ${loaded ? `<span class="fz-badge ok">✓</span>` : ''}
+      </div>`;
+  }
+  checkReadyState();
+}
+
+function handleDrop(e, idx) {
+  e.preventDefault();
+  document.getElementById('fz-'+idx).classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if(file) processFile(file, idx);
+}
+
+function handleFile(e, idx) {
+  const file = e.target.files[0];
+  if(file) processFile(file, idx);
+}
+
+function processFile(file, idx) {
+  setProgress('A ler ' + file.name + '...');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'binary'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, {defval:0});
+      if(!data.length) { setProgress('Erro: ficheiro vazio.'); return; }
+      // Validate required columns
+      const req = ['Data','Turno','Maquina','Referencia','Produzidas_OK'];
+      const missing = req.filter(c => !(c in data[0]));
+      if(missing.length) { setProgress('Colunas em falta: '+missing.join(', ')); return; }
+      // Parse dates for period label
+      const dates = data.map(r => parseIso(String(r.Data))).filter(Boolean).sort();
+      const period = dates.length ? dates[0].slice(5).replace('-','/') + ' – ' + dates[dates.length-1].slice(5).replace('-','/') : '?';
+      loadedFiles[idx] = {name: file.name, rows: data.length, period, data};
+      setProgress('');
+      initLoadScreen();
+      checkMissingSpeeds();
+    } catch(err) {
+      setProgress('Erro ao ler ficheiro: ' + err.message);
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function checkMissingSpeeds() {
+  const allRefs = new Set();
+  for(const f of loadedFiles) {
+    if(!f) continue;
+    for(const r of f.data) if(r.Referencia) allRefs.add(String(r.Referencia).trim());
+  }
+  const missing = [...allRefs].filter(ref => !userSpeeds[ref]);
+  const sec = document.getElementById('speed-section');
+  if(!missing.length) { sec.style.display='none'; return; }
+  sec.style.display='block';
+  document.getElementById('speed-tbody').innerHTML = missing.map(ref =>
+    `<tr><td><strong>${ref}</strong></td><td><input type="number" class="missing" id="spd-${ref.replace(/\s/g,'_')}" placeholder="ex: 150" min="1" max="1000" onchange="userSpeeds['${ref}']=+this.value;this.classList.remove('missing');checkReadyState()"></td></tr>`
+  ).join('');
+  checkReadyState();
+}
+
+function checkReadyState() {
+  const hasFiles = loadedFiles.some(f=>f);
+  const allRefs = new Set();
+  for(const f of loadedFiles) { if(!f) continue; for(const r of f.data) if(r.Referencia) allRefs.add(String(r.Referencia).trim()); }
+  const missingSpeed = [...allRefs].some(ref => !userSpeeds[ref]);
+  const btn = document.getElementById('btn-analyze');
+  btn.classList.toggle('ready', hasFiles && !missingSpeed);
+}
+
+function setProgress(msg) { document.getElementById('load-progress').textContent = msg; }
+
+function analyzeAll() {
+  setProgress('A processar dados...');
+  setTimeout(() => {
+    try {
+      ALL_ROWS = [];
+      for(const f of loadedFiles) {
+        if(!f) continue;
+        for(const r of f.data) {
+          const row = parseRow(r);
+          if(row) ALL_ROWS.push(row);
+        }
+      }
+      if(!ALL_ROWS.length) { setProgress('Nenhum dado válido encontrado.'); return; }
+      buildMeta();
+      buildFilters();
+      updateHeader();
+      document.getElementById('load-screen').style.display='none';
+      setProgress('');
+      refresh();
+    } catch(err) {
+      setProgress('Erro: ' + err.message);
+      console.error(err);
+    }
+  }, 50);
+}
+
+function showLoadScreen() {
+  initLoadScreen();
+  document.getElementById('load-screen').style.display='flex';
+}
+
+// ── ROW PARSING ──
+function parseIso(s) {
+  const m = s.match(/^(\d{2})(\d{2})(\d{4})/);
+  if(!m) return null;
+  try { new Date(+m[3],+m[2]-1,+m[1]); return `${m[3]}-${m[2]}-${m[1]}`; }
+  catch(e) { return null; }
+}
+
+function parseRow(r) {
+  const iso = parseIso(String(r.Data));
+  if(!iso) return null;
+  const dt = new Date(iso);
+  const dow = dt.getDay(); // 0=Sun,6=Sat
+  const weekNum = getWeek(dt);
+  const monthNames = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const month = monthNames[dt.getMonth()+1] || String(dt.getMonth()+1);
+  const date = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+  const ref = String(r.Referencia||'').trim();
+  const speed = userSpeeds[ref] || 150;
+  const stops = {};
+  let totalStops = 0;
+  for(const c of STOP_COLS) {
+    const v = +r[c]||0;
+    stops[STOP_LABELS[c]||c] = v;
+    totalStops += v;
+  }
+  const defects = {};
+  for(const c of DEF_COLS) {
+    const v = +r[c]||0;
+    defects[DEF_LABELS[c]||c] = v;
+  }
+  const totalProd = (+r.Produzidas_OK||0) + (+r.Sucata_NOK||0);
+  const availMin = Math.max(0, TURNO_MIN - totalStops);
+  return {
+    date, iso, week:'Sem '+weekNum, month,
+    turno: String(r.Turno||'').trim(),
+    maquina: +r.Maquina||0,
+    referencia: ref,
+    is_sat: dow===6, is_sun: dow===0,
+    total_stops: totalStops, total_prod: totalProd,
+    produzidas_ok: +r.Produzidas_OK||0,
+    avail_min: availMin, speed,
+    stops, defects
+  };
+}
+
+function getWeek(d) {
+  const date = new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day = date.getUTCDay()||7;
+  date.setUTCDate(date.getUTCDate()+4-day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.ceil((((date-yearStart)/86400000)+1)/7);
+}
+
+function buildMeta() {
+  META = {
+    meses:[...new Set(ALL_ROWS.map(r=>r.month))].sort((a,b)=>{
+      const order=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+      return order.indexOf(a)-order.indexOf(b);
+    }),
+    weeks:[...new Set(ALL_ROWS.map(r=>r.week))].sort(),
+    turnos:[...new Set(ALL_ROWS.map(r=>r.turno))].sort(),
+    maquinas:[...new Set(ALL_ROWS.map(r=>r.maquina))].filter(Boolean).sort((a,b)=>a-b),
+    refs:[...new Set(ALL_ROWS.map(r=>r.referencia))].sort()
+  };
+}
+
+function updateHeader() {
+  const maquinas = META.maquinas.length;
+  const isos = ALL_ROWS.map(r=>r.iso).filter(Boolean).sort();
+  const period = isos.length ? isos[0].slice(5).replace('-','/') + ' – ' + isos[isos.length-1].slice(5).replace('-','/') : '—';
+  document.getElementById('badge-reg').textContent = ALL_ROWS.length + ' Registos';
+  document.getElementById('badge-maq').textContent = maquinas + ' Máquinas';
+  document.getElementById('badge-period').textContent = META.meses.join(' · ');
+  document.getElementById('dash-title').textContent = 'Dashboard OEE — ' + META.meses.join('/');
+}
+
+// ── FILTER PANEL ──
+function buildFilters() {
+  const mkChips = (id, items, key) => {
+    document.getElementById(id).innerHTML = items.map(v =>
+      `<span class="chip" data-key="${key}" data-val="${v}" onclick="toggleChip(this,'${key}','${v}')">${v}</span>`).join('');
+  };
+  mkChips('s-mes',   META.meses,   'meses');
+  mkChips('s-week',  META.weeks,   'weeks');
+  mkChips('s-turno', META.turnos,  'turnos');
+  mkChips('s-maq',   META.maquinas.map(m=>'M'+m), 'maquinas');
+  mkChips('s-ref',   META.refs,    'refs');
+  const isos = ALL_ROWS.map(r=>r.iso).filter(Boolean).sort();
+  if(isos.length) {
+    document.getElementById('date-from').value = isos[0];
+    document.getElementById('date-to').value   = isos[isos.length-1];
+    document.getElementById('date-from').min = isos[0];
+    document.getElementById('date-from').max = isos[isos.length-1];
+    document.getElementById('date-to').min   = isos[0];
+    document.getElementById('date-to').max   = isos[isos.length-1];
+  }
+}
+
+function toggleSec(id) {
+  const el = document.getElementById(id);
+  const arr = document.getElementById('arr-'+id);
+  const h = el.style.display==='none';
+  el.style.display = h?'':'none';
+  if(arr) arr.classList.toggle('open',h);
+}
+
+function toggleChip(el, key, val) {
+  const rv = key==='maquinas' ? parseInt(val.replace('M','')) : val;
+  sel[key].has(rv) ? sel[key].delete(rv) : sel[key].add(rv);
+  el.classList.toggle('active');
+  refresh();
+}
+
+function clearAll() {
+  sel = {meses:new Set(),weeks:new Set(),turnos:new Set(),maquinas:new Set(),refs:new Set()};
+  document.getElementById('chk-sat').checked = true;
+  document.getElementById('chk-sun').checked = true;
+  document.querySelectorAll('.chip.active').forEach(c=>c.classList.remove('active'));
+  clearDates();
+}
+
+function clearDates() {
+  const isos = ALL_ROWS.map(r=>r.iso).filter(Boolean).sort();
+  if(isos.length) {
+    document.getElementById('date-from').value = isos[0];
+    document.getElementById('date-to').value   = isos[isos.length-1];
+  }
+  refresh();
+}
+
+function getRows() {
+  const incSat=document.getElementById('chk-sat').checked;
+  const incSun=document.getElementById('chk-sun').checked;
+  const from=document.getElementById('date-from').value;
+  const to=document.getElementById('date-to').value;
+  return ALL_ROWS.filter(r => {
+    if(!incSat && r.is_sat) return false;
+    if(!incSun && r.is_sun) return false;
+    if(sel.meses.size    && !sel.meses.has(r.month))      return false;
+    if(sel.weeks.size    && !sel.weeks.has(r.week))       return false;
+    if(sel.turnos.size   && !sel.turnos.has(r.turno))     return false;
+    if(sel.maquinas.size && !sel.maquinas.has(r.maquina)) return false;
+    if(sel.refs.size     && !sel.refs.has(r.referencia))  return false;
+    if(from && r.iso && r.iso < from) return false;
+    if(to   && r.iso && r.iso > to)   return false;
+    return true;
+  });
+}
+
+function renderActiveBar() {
+  const tags = [];
+  if(!document.getElementById('chk-sat').checked) tags.push(['Excluir Sáb.', ()=>{document.getElementById('chk-sat').checked=true;refresh();}]);
+  if(!document.getElementById('chk-sun').checked) tags.push(['Excluir Dom.', ()=>{document.getElementById('chk-sun').checked=true;refresh();}]);
+  for(const m of sel.meses)    tags.push([m,    ()=>{sel.meses.delete(m);   refreshChip('meses',m);   refresh();}]);
+  for(const w of sel.weeks)    tags.push([w,    ()=>{sel.weeks.delete(w);   refreshChip('weeks',w);   refresh();}]);
+  for(const t of sel.turnos)   tags.push([t,    ()=>{sel.turnos.delete(t);  refreshChip('turnos',t);  refresh();}]);
+  for(const m of sel.maquinas) tags.push(['M'+m,()=>{sel.maquinas.delete(m);refreshChip('maquinas','M'+m);refresh();}]);
+  for(const r of sel.refs)     tags.push([r,    ()=>{sel.refs.delete(r);    refreshChip('refs',r);    refresh();}]);
+  const bar = document.getElementById('active-bar');
+  if(!tags.length){bar.style.display='none';return;}
+  bar.style.display='flex';
+  bar.innerHTML='<span class="abar-lbl">Filtros:</span>'+tags.map(([l,fn])=>`<span class="atag">${l}<span class="x" onclick="(${fn})()">✕</span></span>`).join('');
+}
+
+function refreshChip(key,val){
+  document.querySelectorAll(`.chip[data-key="${key}"][data-val="${val}"]`).forEach(c=>c.classList.remove('active'));
+}
+
+// ── AGGREGATE ──
+function aggregate(rows) {
+  const byDate={}, byMachine={}, byTurno={}, byRef={};
+  const add=(obj,key,r)=>{
+    if(!obj[key]) obj[key]={rows:0,stops:0,tp:0,ok:0,vp:0,vt:0,stopBreak:{},defBreak:{}};
+    const g=obj[key];
+    g.rows++;g.stops+=r.total_stops;g.tp+=r.total_prod;g.ok+=r.produzidas_ok;
+    if(r.avail_min>0){g.vp+=r.total_prod;g.vt+=(r.avail_min/60)*r.speed;}
+    for(const[k,v] of Object.entries(r.stops)) g.stopBreak[k]=(g.stopBreak[k]||0)+v;
+    for(const[k,v] of Object.entries(r.defects)) g.defBreak[k]=(g.defBreak[k]||0)+v;
+  };
+  for(const r of rows){
+    add(byDate,r.date+'|'+r.iso,r);
+    add(byMachine,r.maquina,r);
+    add(byTurno,r.turno,r);
+    add(byRef,r.referencia,r);
+  }
+  const calc=g=>{
+    const av=Math.max(0,TURNO_MIN*g.rows-g.stops)/(TURNO_MIN*g.rows);
+    const qu=g.tp>0?g.ok/g.tp:1;
+    const pe=g.vt>0?Math.min(1.5,g.vp/g.vt):0;
+    return{avail:+av.toFixed(4),quality:+qu.toFixed(4),perf:+pe.toFixed(4),OEE:+(av*qu*pe).toFixed(4),tp:g.tp};
+  };
+  const sortedDK=Object.keys(byDate).sort((a,b)=>{const ia=a.split('|')[1]||'',ib=b.split('|')[1]||'';return ia<ib?-1:1;});
+  const overall=(()=>{
+    let r2=0,st=0,tp=0,ok=0,vp=0,vt=0;
+    for(const r of rows){r2++;st+=r.total_stops;tp+=r.total_prod;ok+=r.produzidas_ok;if(r.avail_min>0){vp+=r.total_prod;vt+=(r.avail_min/60)*r.speed;}}
+    if(!r2) return{avail:0,quality:0,perf:0,oee:0};
+    const av=Math.max(0,TURNO_MIN*r2-st)/(TURNO_MIN*r2),qu=tp>0?ok/tp:1,pe=vt>0?Math.min(1.5,vp/vt):0;
+    return{avail:+av.toFixed(4),quality:+qu.toFixed(4),perf:+pe.toFixed(4),oee:+(av*qu*pe).toFixed(4)};
+  })();
+  const stopTot={},defTot={};
+  for(const r of rows){
+    for(const[k,v] of Object.entries(r.stops)) stopTot[k]=(stopTot[k]||0)+v;
+    for(const[k,v] of Object.entries(r.defects)) defTot[k]=(defTot[k]||0)+v;
+  }
+  const ts=Object.values(stopTot).reduce((a,b)=>a+b,0);
+  const td=Object.values(defTot).reduce((a,b)=>a+b,0);
+  return{
+    byDate:sortedDK.map(k=>{const[date,iso]=k.split('|');return{date,iso,...calc(byDate[k])};}),
+    byMachine:Object.keys(byMachine).sort((a,b)=>+a-+b).map(k=>({machine:+k,...calc(byMachine[k])})),
+    byTurno:['Turno 1','Turno 2','Turno 3'].filter(t=>byTurno[t]).map(t=>({turno:t,...calc(byTurno[t])})),
+    byRef:Object.keys(byRef).sort().map(k=>({ref:k,...calc(byRef[k])})),
+    stops:Object.entries(stopTot).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0).map(([k,v])=>[k,ts>0?+(v/ts*100).toFixed(1):0]),
+    defects:Object.entries(defTot).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0).map(([k,v])=>[k,td>0?+(v/td*100).toFixed(1):0]),
+    overall
+  };
+}
+
+function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+function linReg(data){
+  const n=data.length;if(n<2) return data.map(()=>null);
+  const xs=[...Array(n).keys()];
+  const sx=xs.reduce((a,b)=>a+b,0),sy=data.reduce((a,b)=>a+b,0);
+  const sxy=xs.reduce((a,x,i)=>a+x*data[i],0),sx2=xs.reduce((a,x)=>a+x*x,0);
+  const m=(n*sxy-sx*sy)/(n*sx2-sx*sx),b=(sy-m*sx)/n;
+  return xs.map(x=>+(m*x+b).toFixed(2));
+}
+
+function hmColor(v){if(v===null||v===undefined)return'#e8edf2';if(v>=.80)return'#1d9e75';if(v>=.70)return'#97c459';if(v>=.55)return'#f5a623';return'#e24b4a';}
+
+// ── PAGE NAVIGATION ──
+function setPage(p){
+  currentPage=p;
+  const injPages=['overview','heatmap','machines','stops','defects','compare','refs'];
+  injPages.forEach(id=>{
+    document.getElementById('page-'+id).style.display=id===p?'block':'none';
+  });
+  document.getElementById('page-ups').style.display=p==='ups'?'block':'none';
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>{
+    const pages=[...injPages,'ups'];
+    t.classList.toggle('active',pages[i]===p);
+  });
+  if(p!=='ups') refresh();
+  else upsRefresh();
+}
+
+function filterDay(iso){
+  document.getElementById('date-from').value=iso;
+  document.getElementById('date-to').value=iso;
+  sel.weeks=new Set();sel.meses=new Set();
+  document.querySelectorAll('.chip[data-key="weeks"].active,.chip[data-key="meses"].active').forEach(c=>c.classList.remove('active'));
+  setPage('overview');
+}
+
+// ── MAIN REFRESH ──
+function refresh(){
+  if(!ALL_ROWS.length) return;
+  filteredRows=getRows();
+  document.getElementById('badge-reg').textContent=filteredRows.length+' Registos';
+  renderActiveBar();
+  const agg=aggregate(filteredRows);
+  renderKPIs(agg.overall);
+  renderTop3(agg.byDate);
+  if(currentPage==='overview')  renderOverview(agg);
+  if(currentPage==='heatmap')   renderHeatmap(filteredRows);
+  if(currentPage==='machines')  renderMachines(agg);
+  if(currentPage==='stops')     renderStops(agg);
+  if(currentPage==='defects')   renderDefects(agg);
+  if(currentPage==='compare')   renderCompare();
+  if(currentPage==='refs')      renderRefs(agg);
+}
+
+function renderKPIs(o){
+  const kpis=[
+    {label:'OEE',val:(o.oee*100).toFixed(1)+'%',color:'#1a3a5c',pct:o.oee,sub:'Meta: 85%'},
+    {label:'Disponibilidade',val:(o.avail*100).toFixed(1)+'%',color:'#1d9e75',pct:o.avail,sub:'(440−par) / 440 min'},
+    {label:'Performance',val:(o.perf*100).toFixed(1)+'%',color:'#f5a623',pct:o.perf,sub:'Vel. real / vel. ideal'},
+    {label:'Qualidade',val:(o.quality*100).toFixed(1)+'%',color:'#639922',pct:o.quality,sub:'OK / (OK+NOK)'},
+  ];
+  document.getElementById('kpi-row').innerHTML=kpis.map(k=>`
+    <div class="kpi-card" style="border-top-color:${k.color}">
+      <div class="kpi-lbl">${k.label}</div>
+      <div class="kpi-val" style="color:${k.color}">${k.val}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100,k.pct*100).toFixed(1)}%;background:${k.color}"></div></div>
+    </div>`).join('');
+}
+
+function renderTop3(byDate){
+  const sorted=[...byDate].filter(d=>d.OEE>0).sort((a,b)=>a.OEE-b.OEE);
+  const worst=sorted.slice(0,3);
+  const colors=['#e24b4a','#f5a623','#1d9e75'];
+  const ranks=['1º Pior','2º Pior','3º Pior'];
+  document.getElementById('top3-days').innerHTML=worst.map((d,i)=>`
+    <div class="alert-card ${i===2?'ok':i===1?'warn':''}" onclick="filterDay('${d.iso}')">
+      <div class="alert-rank">${ranks[i]} · ${d.date}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:3px;">OEE do dia</div>
+      <div class="alert-val" style="color:${colors[i]}">${(d.OEE*100).toFixed(1)}%</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px;">Clica para ver o dia</div>
+    </div>`).join('');
+}
+
+function renderOverview(agg){
+  destroy('line');destroy('shift');
+  const oeeData=agg.byDate.map(x=>+(x.OEE*100).toFixed(1));
+  charts['line']=new Chart(document.getElementById('lineChart'),{
+    type:'line',
+    data:{labels:agg.byDate.map(x=>x.date),datasets:[
+      {label:'OEE',data:oeeData,borderColor:'#1a3a5c',backgroundColor:'rgba(26,58,92,.08)',fill:true,tension:.35,pointRadius:4,pointHoverRadius:6,borderWidth:2.5},
+      {label:'Disponib.',data:agg.byDate.map(x=>+(x.avail*100).toFixed(1)),borderColor:'#1d9e75',borderDash:[5,3],fill:false,tension:.35,pointRadius:2,borderWidth:1.5},
+      {label:'Perf.',data:agg.byDate.map(x=>+(x.perf*100).toFixed(1)),borderColor:'#f5a623',borderDash:[5,3],fill:false,tension:.35,pointRadius:2,borderWidth:1.5},
+      {label:'Qual.',data:agg.byDate.map(x=>+(x.quality*100).toFixed(1)),borderColor:'#639922',borderDash:[5,3],fill:false,tension:.35,pointRadius:2,borderWidth:1.5},
+      {label:'Tendência',data:linReg(oeeData),borderColor:'rgba(150,150,150,.55)',borderDash:[8,4],fill:false,tension:0,pointRadius:0,borderWidth:1.5},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      onClick(evt,els){if(!els.length)return;const iso=agg.byDate[els[0].index].iso;if(iso)filterDay(iso);},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%',title:t=>t[0].label+' — clica para filtrar'}}},
+      scales:{y:{min:0,max:105,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10},maxRotation:45},grid:{color:gc}}}}
+  });
+  charts['shift']=new Chart(document.getElementById('shiftChart'),{
+    type:'bar',
+    data:{labels:agg.byTurno.map(x=>x.turno),datasets:[{label:'OEE',data:agg.byTurno.map(x=>+(x.OEE*100).toFixed(1)),backgroundColor:['#1a3a5c','#2e6da4','#5b9bd5'],borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function renderHeatmap(rows){
+  const machines=[...new Set(rows.map(r=>r.maquina))].sort((a,b)=>a-b);
+  const dates=[...new Set(rows.map(r=>r.date+'|'+r.iso))].sort((a,b)=>{const ia=a.split('|')[1]||'',ib=b.split('|')[1]||'';return ia<ib?-1:1;});
+  const matrix={};
+  for(const r of rows){
+    const dk=r.date+'|'+r.iso;
+    if(!matrix[r.maquina]) matrix[r.maquina]={};
+    if(!matrix[r.maquina][dk]) matrix[r.maquina][dk]={rows:0,stops:0,tp:0,ok:0,vp:0,vt:0};
+    const g=matrix[r.maquina][dk];
+    g.rows++;g.stops+=r.total_stops;g.tp+=r.total_prod;g.ok+=r.produzidas_ok;
+    if(r.avail_min>0){g.vp+=r.total_prod;g.vt+=(r.avail_min/60)*r.speed;}
+  }
+  const cOEE=g=>{const av=Math.max(0,TURNO_MIN*g.rows-g.stops)/(TURNO_MIN*g.rows),qu=g.tp>0?g.ok/g.tp:1,pe=g.vt>0?Math.min(1.5,g.vp/g.vt):0;return av*qu*pe;};
+  let html='<table class="hm-table"><thead><tr><th>Máq.</th>';
+  dates.forEach(dk=>{const[date]=dk.split('|');html+=`<th>${date}</th>`;});
+  html+='</tr></thead><tbody>';
+  for(const m of machines){
+    html+=`<tr><td class="hm-mach">M${m}</td>`;
+    for(const dk of dates){
+      const g=matrix[m]?.[dk];
+      if(!g){html+='<td style="background:#e8edf2;color:#ccc;">—</td>';continue;}
+      const oee=cOEE(g);const[date,iso]=dk.split('|');
+      html+=`<td style="background:${hmColor(oee)};color:#fff;" onclick="filterDay('${iso}')" title="M${m} ${date}: ${(oee*100).toFixed(1)}%">${(oee*100).toFixed(0)}%</td>`;
+    }
+    html+='</tr>';
+  }
+  document.getElementById('heatmap-container').innerHTML=html+'</tbody></table>';
+}
+
+function renderMachines(agg){
+  destroy('mOEE');destroy('mComp');
+  const labels=agg.byMachine.map(x=>'M'+x.machine);
+  charts['mOEE']=new Chart(document.getElementById('machineOEEChart'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'OEE',data:agg.byMachine.map(x=>+(x.OEE*100).toFixed(1)),backgroundColor:agg.byMachine.map(x=>x.OEE>=.75?'#1d9e75':x.OEE>=.6?'#f5a623':'#e24b4a'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false}}}}
+  });
+  charts['mComp']=new Chart(document.getElementById('machineCompChart'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Disponib.',data:agg.byMachine.map(x=>+(x.avail*100).toFixed(1)),backgroundColor:'#1d9e75',borderRadius:2},
+      {label:'Perf.',data:agg.byMachine.map(x=>+(x.perf*100).toFixed(1)),backgroundColor:'#f5a623',borderRadius:2},
+      {label:'Qual.',data:agg.byMachine.map(x=>+(x.quality*100).toFixed(1)),backgroundColor:'#639922',borderRadius:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:110,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function renderHBars(id,data,colors){
+  document.getElementById(id).innerHTML=data.map(([name,val],i)=>`
+    <div class="hbar-row">
+      <div class="hbar-lbl">${name}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${val}%;background:${colors[i%colors.length]}">
+        ${val>=8?`<span class="hbar-fill-lbl">${val.toFixed(1)}%</span>`:''}
+      </div></div>
+      <div class="hbar-val">${val.toFixed(1)}%</div>
+    </div>`).join('');
+}
+
+function renderStops(agg){
+  destroy('stopD');
+  renderHBars('stop-bars',agg.stops,STOP_COLORS);
+  charts['stopD']=new Chart(document.getElementById('stopDoughnut'),{
+    type:'doughnut',
+    data:{labels:agg.stops.map(x=>x[0]),datasets:[{data:agg.stops.map(x=>x[1]),backgroundColor:STOP_COLORS,borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:10},color:tc,boxWidth:12,padding:8}},tooltip:{callbacks:{label:c=>c.label+': '+c.parsed.toFixed(1)+'%'}}}}
+  });
+}
+
+function renderDefects(agg){
+  destroy('defD');
+  renderHBars('defect-bars',agg.defects,DEF_COLORS);
+  const top6=agg.defects.slice(0,6);
+  const rest=agg.defects.slice(6).reduce((a,[,v])=>a+v,0);
+  const cd=rest>0?[...top6,['Outros',+rest.toFixed(1)]]:top6;
+  charts['defD']=new Chart(document.getElementById('defectDoughnut'),{
+    type:'doughnut',
+    data:{labels:cd.map(x=>x[0]),datasets:[{data:cd.map(x=>x[1]),backgroundColor:[...DEF_COLORS.slice(0,6),'#bbb'],borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'52%',plugins:{legend:{position:'bottom',labels:{font:{size:10},color:tc,boxWidth:12,padding:7}},tooltip:{callbacks:{label:c=>c.label+': '+c.parsed.toFixed(1)+'%'}}}}
+  });
+}
+
+function renderCompare(){
+  const meses=META.meses;
+  if(meses.length<2){
+    document.getElementById('compare-kpis').innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;color:var(--text3);padding:30px;">Necessário pelo menos 2 meses de dados para comparar.</div>';
+    ['lineChartA','lineChartB','compareBarChart'].forEach(id=>{destroy(id);});
+    return;
+  }
+  const mesA=meses[0], mesB=meses[1];
+  document.getElementById('title-line-a').childNodes[0].textContent=mesA+' ';
+  document.getElementById('title-line-b').childNodes[0].textContent=mesB+' ';
+  const rowsA=filteredRows.filter(r=>r.month===mesA);
+  const rowsB=filteredRows.filter(r=>r.month===mesB);
+  const aggA=aggregate(rowsA), aggB=aggregate(rowsB);
+  const metrics=[
+    {lbl:'OEE',a:aggA.overall.oee,b:aggB.overall.oee,color:'#1a3a5c',fmt:v=>(v*100).toFixed(1)+'%'},
+    {lbl:'Disponibilidade',a:aggA.overall.avail,b:aggB.overall.avail,color:'#1d9e75',fmt:v=>(v*100).toFixed(1)+'%'},
+    {lbl:'Performance',a:aggA.overall.perf,b:aggB.overall.perf,color:'#f5a623',fmt:v=>(v*100).toFixed(1)+'%'},
+    {lbl:'Qualidade',a:aggA.overall.quality,b:aggB.overall.quality,color:'#639922',fmt:v=>(v*100).toFixed(1)+'%'},
+  ];
+  document.getElementById('compare-kpis').innerHTML=metrics.map(m=>{
+    const diff=+((m.b-m.a)*100).toFixed(1);
+    const arrow=diff>0?'▲':'▼';
+    const dc=diff>0?'#1d9e75':'#e24b4a';
+    return`<div class="card" style="border-top:3px solid ${m.color}">
+      <div class="kpi-lbl">${m.lbl}</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:6px;">
+        <div><div style="font-size:10px;color:var(--text3);">${mesA}</div><div style="font-size:20px;font-weight:600;font-family:var(--mono);color:var(--text2);">${m.fmt(m.a)}</div></div>
+        <div style="font-size:16px;color:var(--text3);">→</div>
+        <div><div style="font-size:10px;color:var(--text3);">${mesB}</div><div style="font-size:20px;font-weight:600;font-family:var(--mono);color:${m.color};">${m.fmt(m.b)}</div></div>
+        <div style="margin-left:auto;font-size:13px;font-weight:600;color:${dc};">${arrow} ${Math.abs(diff)}pp</div>
+      </div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100,m.b*100).toFixed(1)}%;background:${m.color}"></div></div>
+    </div>`;
+  }).join('');
+  ['lineChartA','lineChartB'].forEach((id,i)=>{
+    destroy(id);
+    const agg=i===0?aggA:aggB;
+    const color=i===0?'#1a3a5c':'#2e6da4';
+    const oeeD=agg.byDate.map(x=>+(x.OEE*100).toFixed(1));
+    charts[id]=new Chart(document.getElementById(id),{
+      type:'line',
+      data:{labels:agg.byDate.map(x=>x.date),datasets:[
+        {label:'OEE',data:oeeD,borderColor:color,backgroundColor:color+'22',fill:true,tension:.35,pointRadius:3,borderWidth:2},
+        {label:'Tendência',data:linReg(oeeD),borderColor:'rgba(150,150,150,.5)',borderDash:[6,3],fill:false,tension:0,pointRadius:0,borderWidth:1.5},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+        scales:{y:{min:0,max:105,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:9},maxRotation:45},grid:{color:gc}}}}
+    });
+  });
+  destroy('cmpBar');
+  charts['cmpBar']=new Chart(document.getElementById('compareBarChart'),{
+    type:'bar',
+    data:{labels:['OEE','Disponib.','Performance','Qualidade'],datasets:[
+      {label:mesA,data:[aggA.overall.oee,aggA.overall.avail,aggA.overall.perf,aggA.overall.quality].map(v=>+(v*100).toFixed(1)),backgroundColor:'#1a3a5c',borderRadius:4},
+      {label:mesB,data:[aggB.overall.oee,aggB.overall.avail,aggB.overall.perf,aggB.overall.quality].map(v=>+(v*100).toFixed(1)),backgroundColor:'#5b9bd5',borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},color:tc,boxWidth:12,padding:8}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function renderRefs(agg){
+  destroy('refOEE');destroy('refComp');destroy('refVol');
+  const labels=agg.byRef.map(x=>x.ref);
+  charts['refOEE']=new Chart(document.getElementById('refOEEChart'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'OEE',data:agg.byRef.map(x=>+(x.OEE*100).toFixed(1)),backgroundColor:agg.byRef.map(x=>x.OEE>=.75?'#1d9e75':x.OEE>=.6?'#f5a623':'#e24b4a'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:9},maxRotation:45},grid:{display:false}}}}
+  });
+  charts['refComp']=new Chart(document.getElementById('refCompChart'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Disponib.',data:agg.byRef.map(x=>+(x.avail*100).toFixed(1)),backgroundColor:'#1d9e75',borderRadius:2},
+      {label:'Perf.',data:agg.byRef.map(x=>+(x.perf*100).toFixed(1)),backgroundColor:'#f5a623',borderRadius:2},
+      {label:'Qual.',data:agg.byRef.map(x=>+(x.quality*100).toFixed(1)),backgroundColor:'#639922',borderRadius:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:110,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:9},maxRotation:45},grid:{display:false}}}}
+  });
+  charts['refVol']=new Chart(document.getElementById('refVolChart'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'Peças',data:agg.byRef.map(x=>x.tp||0),backgroundColor:'#2e6da4',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+' peças'}}},
+      scales:{y:{ticks:{callback:v=>v>=1000?(v/1000).toFixed(0)+'k':v,color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:9},maxRotation:45},grid:{display:false}}}}
+  });
+}
+
+function exportCSV(){
+  if(!filteredRows.length){alert('Sem dados para exportar.');return;}
+  const stopKeys=Object.keys(filteredRows[0].stops);
+  const defKeys=Object.keys(filteredRows[0].defects);
+  const headers=['Data','ISO','Mês','Semana','Turno','Máquina','Referência','Sábado','Domingo','Paragens Total','Produção Total','Produzidas OK','Vel. Ideal',...stopKeys,...defKeys];
+  const csv=[headers.join(';'),...filteredRows.map(r=>[
+    r.date,r.iso,r.month,r.week,r.turno,r.maquina,r.referencia,
+    r.is_sat?'Sim':'Não',r.is_sun?'Sim':'Não',
+    r.total_stops,r.total_prod,r.produzidas_ok,r.speed,
+    ...stopKeys.map(k=>r.stops[k]||0),
+    ...defKeys.map(k=>r.defects[k]||0)
+  ].join(';'))].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='oee_export_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════════
+// UPS MODULE
+// ══════════════════════════════════════════════════════════
+
+// UPS state
+const UPS_PROJECTS = ['martur','lx3','mra2'];
+const UPS_LABELS   = {martur:'Martur', lx3:'LX3', mra2:'MRA2'};
+const UPS_COLORS   = {martur:'#1a3a5c', lx3:'#1d6e8a', mra2:'#39568a'};
+
+// Normalised column names extracted from any UPS file prefix
+function upsNormalise(col) {
+  // Strip prefix like "Martur - Registo Tempos Paragem → " or "LX3 - Registo Tempos Paragem → "
+  // Keep the short code after →
+  const arrow = col.indexOf('→');
+  const short = arrow>=0 ? col.slice(arrow+1).trim() : col.trim();
+  return short;
+}
+
+const UPS_STOP_CODES = ['Ave Avaria De Equipamento','Af Afinação','St Setup','Fm Falta Material','Pq Problema Qualidade','Sh Shutdown','Mt Manutenção','Aud Auditoria','En Ensaio','Fc Formação Colaborador','Rh Recursos Humanos','Tb Troca Bobine'];
+const UPS_STOP_LABELS_MAP = {
+  'Ave Avaria De Equipamento':'Avaria Equipamento',
+  'Af Afinação':'Afinação',
+  'St Setup':'Setup',
+  'Fm Falta Material':'Falta Material',
+  'Pq Problema Qualidade':'Problema Qualidade',
+  'Sh Shutdown':'Shutdown',
+  'Mt Manutenção':'Manutenção',
+  'Aud Auditoria':'Auditoria',
+  'En Ensaio':'Ensaio',
+  'Fc Formação Colaborador':'Formação',
+  'Rh Recursos Humanos':'RH',
+  'Tb Troca Bobine':'Troca Bobine'
+};
+
+let upsFiles = {martur:null, lx3:null, mra2:null};
+let upsRows  = {martur:[], lx3:[], mra2:[]};
+let upsCurrentProj = 'martur';
+let upsCurrentSubPage = 'overview';
+let upsCharts = {};
+let upsMeta = {};
+
+// ── UPS FILE LOADING ──
+function upsHandleDrop(e, proj) {
+  e.preventDefault();
+  document.getElementById('ups-fz-'+proj).classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if(file) upsProcessFile(file, proj);
+}
+function upsHandleFile(e, proj) {
+  const file = e.target.files[0];
+  if(file) upsProcessFile(file, proj);
+}
+function upsProcessFile(file, proj) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, {defval:0});
+      if(!data.length) { upsSetStatus(proj,'Ficheiro vazio','err'); return; }
+      upsFiles[proj] = {name:file.name, rows:data.length, data};
+      upsRows[proj] = upsParseRows(data, proj);
+      document.getElementById('ups-fname-'+proj).textContent = file.name;
+      document.getElementById('ups-fstatus-'+proj).textContent = '✓ '+upsRows[proj].length+' registos válidos';
+      document.getElementById('ups-fstatus-'+proj).style.color = 'var(--green)';
+      document.getElementById('ups-fbadge-'+proj).style.display = 'inline';
+      document.getElementById('ups-fz-'+proj).classList.add('loaded');
+      upsCheckReady();
+    } catch(err) { upsSetStatus(proj,'Erro: '+err.message,'err'); }
+  };
+  reader.readAsBinaryString(file);
+}
+function upsSetStatus(proj, msg, type) {
+  const el = document.getElementById('ups-fstatus-'+proj);
+  el.textContent = msg;
+  el.style.color = type==='err' ? 'var(--red)' : 'var(--text3)';
+}
+function upsCheckReady() {
+  const hasAny = UPS_PROJECTS.some(p => upsRows[p].length > 0);
+  if(hasAny) {
+    document.getElementById('ups-content').style.display = 'block';
+    document.getElementById('ups-upload-panel').style.marginBottom = '8px';
+    // Switch to the newly loaded project, keeping the current sub-page
+    const firstLoaded = UPS_PROJECTS.find(p => upsRows[p].length > 0);
+    const target = upsRows[upsCurrentProj]?.length > 0 ? upsCurrentProj : firstLoaded;
+    upsSetProj(target);
+  }
+}
+
+// ── UPS ROW PARSING ──
+function upsParseRows(data, proj) {
+  const monthNames = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const rows = [];
+
+  // Discover stop & defect columns dynamically from the data
+  const firstRow = data[0];
+  const allCols = Object.keys(firstRow);
+  const stopCols = allCols.filter(c => (c.includes('Paragem') || c.includes('Tempos Paragem')) && !c.includes('Registo ID') && !c.includes('Total') && !c.includes('Peças'));
+  const defCols  = allCols.filter(c => (c.includes('Defeito') || c.includes('Defeitos') || c.includes('Visão')) && !c.includes('Registo ID') && !c.toLowerCase().includes('→ registo id') && !c.endsWith('→ Registo ID'));
+
+  for(const r of data) {
+    // Parse date
+    let dt = null;
+    const rawDate = r['Data: Dia'] || r['Data'];
+    if(!rawDate) continue;
+    if(rawDate instanceof Date || (typeof rawDate === 'object' && rawDate.getTime)) {
+      dt = rawDate;
+    } else if(typeof rawDate === 'number') {
+      // Excel serial date
+      dt = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
+    } else {
+      dt = new Date(rawDate);
+    }
+    if(!dt || isNaN(dt.getTime())) continue;
+
+    const iso = dt.toISOString().slice(0,10);
+    const dow = dt.getDay();
+    const weekNum = getWeek(dt);
+    const month = monthNames[dt.getMonth()+1] || String(dt.getMonth()+1);
+    const date = String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
+
+    // Stops
+    const stops = {};
+    let totalStops = 0;
+    for(const col of stopCols) {
+      const v = +r[col]||0;
+      const label = UPS_STOP_LABELS_MAP[upsNormalise(col)] || upsNormalise(col);
+      stops[label] = (stops[label]||0) + v;
+      totalStops += v;
+    }
+    // Deduplicate stops that may have been doubled
+    // (some files have both vision and manual defect columns with same semantic)
+
+    // Defects
+    const defects = {};
+    for(const col of defCols) {
+      const v = +r[col]||0;
+      if(v===0) continue;
+      const label = upsNormalise(col).replace(/^.*→\s*/,'');
+      defects[label] = (defects[label]||0) + v;
+    }
+
+    const pok  = +r.Pok  || +r.Produzidas_OK || 0;
+    const pnok = +r.Pnok || +r.Sucata_NOK    || 0;
+    const totalProd = pok + pnok;
+
+    // OEE: use pre-calculated if available, else compute
+    let oee, avail, perf, quality;
+    const TURNO = +r['Tempo Real'] || +r['Tempo Planeado'] || 480;
+    const PLANNED = Math.max(0, TURNO - (40)); // assume 40 min breaks if no better data
+
+    if('OEE' in r && r.OEE > 0) {
+      oee     = +r.OEE;
+      avail   = +r['Disponibilidade ( Retificado)'] || +r['Disponibilidade 2'] || +r['Disponibilidade'] || 0;
+      perf    = +r.Desempenho || 0;
+      quality = +r.Qualidade  || (totalProd>0 ? pok/totalProd : 1);
+    } else {
+      // Compute from raw data
+      const availMin = Math.max(0, PLANNED - totalStops);
+      avail   = PLANNED > 0 ? availMin / PLANNED : 0;
+      quality = totalProd > 0 ? pok / totalProd : 1;
+      // For perf, use Ciclo Minuto if available; otherwise assume 1.0 (not measurable)
+      const ciclo = +r['Reg Fichas Parametros Ups - Referencia → Ciclo Minuto'] ||
+                    +r['UPS┋Fichas Parâmetros - Referencia → Ciclo Minuto'] || 0;
+      if(ciclo > 0 && availMin > 0) {
+        const idealPerTurno = availMin / ciclo;
+        perf = Math.min(1.5, idealPerTurno > 0 ? totalProd / idealPerTurno : 0);
+      } else {
+        perf = 1.0; // Performance não calculável — assume 100%
+      }
+      oee = avail * perf * quality;
+    }
+
+    rows.push({
+      date, iso, week:'Sem '+weekNum, month,
+      turno: String(r.Turno||'').trim(),
+      maquina: +r.Maquina || 0,
+      referencia: String(r.Referencia||'').trim(),
+      is_sat: dow===6, is_sun: dow===0,
+      total_stops: totalStops,
+      total_prod: totalProd,
+      produzidas_ok: pok,
+      oee, avail, perf, quality,
+      stops, defects,
+      proj
+    });
+  }
+  return rows;
+}
+
+// ── UPS AGGREGATE (uses pre-calculated OEE values) ──
+function upsAggregate(rows) {
+  const byDate={}, byMachine={}, byTurno={}, byRef={};
+  const addG = (obj, key, r) => {
+    if(!obj[key]) obj[key]={n:0, oeeSum:0, availSum:0, perfSum:0, qualSum:0, tp:0, stopBreak:{}, defBreak:{}};
+    const g = obj[key];
+    g.n++; g.oeeSum+=r.oee; g.availSum+=r.avail; g.perfSum+=r.perf; g.qualSum+=r.quality;
+    g.tp += r.total_prod;
+    for(const [k,v] of Object.entries(r.stops))   g.stopBreak[k] = (g.stopBreak[k]||0)+v;
+    for(const [k,v] of Object.entries(r.defects))  g.defBreak[k]  = (g.defBreak[k]||0)+v;
+  };
+  for(const r of rows) {
+    addG(byDate,    r.date+'|'+r.iso, r);
+    addG(byMachine, r.maquina,        r);
+    addG(byTurno,   r.turno,          r);
+    addG(byRef,     r.referencia,     r);
+  }
+  const calc = g => ({
+    OEE:    +(g.oeeSum/g.n).toFixed(4),
+    avail:  +(g.availSum/g.n).toFixed(4),
+    perf:   +(g.perfSum/g.n).toFixed(4),
+    quality:+(g.qualSum/g.n).toFixed(4),
+    tp: g.tp
+  });
+  const overall = (() => {
+    if(!rows.length) return {oee:0,avail:0,perf:0,quality:0};
+    const n=rows.length;
+    return {
+      oee:    +(rows.reduce((a,r)=>a+r.oee,0)/n).toFixed(4),
+      avail:  +(rows.reduce((a,r)=>a+r.avail,0)/n).toFixed(4),
+      perf:   +(rows.reduce((a,r)=>a+r.perf,0)/n).toFixed(4),
+      quality:+(rows.reduce((a,r)=>a+r.quality,0)/n).toFixed(4),
+    };
+  })();
+  const stopTot={}, defTot={};
+  for(const r of rows) {
+    for(const[k,v] of Object.entries(r.stops))   stopTot[k]=(stopTot[k]||0)+v;
+    for(const[k,v] of Object.entries(r.defects))  defTot[k]=(defTot[k]||0)+v;
+  }
+  const ts=Object.values(stopTot).reduce((a,b)=>a+b,0);
+  const td=Object.values(defTot).reduce((a,b)=>a+b,0);
+  const sortedDK = Object.keys(byDate).sort((a,b)=>{const ia=a.split('|')[1]||'',ib=b.split('|')[1]||'';return ia<ib?-1:1;});
+  return {
+    byDate:    sortedDK.map(k=>{const[date,iso]=k.split('|');return{date,iso,...calc(byDate[k])};}),
+    byMachine: Object.keys(byMachine).sort((a,b)=>+a-+b).map(k=>({machine:+k,...calc(byMachine[k])})),
+    byTurno:   Object.keys(byTurno).sort().map(t=>({turno:t,...calc(byTurno[t])})),
+    byRef:     Object.keys(byRef).sort().map(k=>({ref:k,...calc(byRef[k])})),
+    stops:     Object.entries(stopTot).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,ts>0?+(v/ts*100).toFixed(1):0]),
+    defects:   Object.entries(defTot).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,td>0?+(v/td*100).toFixed(1):0]),
+    overall
+  };
+}
+
+// Get rows for current project selection
+function upsGetRows() {
+  if(upsCurrentProj === 'all') {
+    return UPS_PROJECTS.flatMap(p => upsRows[p]);
+  }
+  return upsRows[upsCurrentProj] || [];
+}
+
+function upsBuildMeta(rows) {
+  const order=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return {
+    meses: [...new Set(rows.map(r=>r.month))].sort((a,b)=>order.indexOf(a)-order.indexOf(b)),
+    weeks: [...new Set(rows.map(r=>r.week))].sort(),
+    turnos:[...new Set(rows.map(r=>r.turno))].sort(),
+    maquinas:[...new Set(rows.map(r=>r.maquina))].filter(Boolean).sort((a,b)=>a-b),
+    refs:[...new Set(rows.map(r=>r.referencia))].sort()
+  };
+}
+
+// ── UPS NAVIGATION ──
+function upsSetProj(proj) {
+  upsCurrentProj = proj;
+  document.querySelectorAll('.ups-proj-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.proj === proj);
+  });
+  upsRefresh();
+}
+
+function upsSetSubPage(sub) {
+  upsCurrentSubPage = sub;
+  // Destroy all UPS charts when switching pages to prevent "canvas in use" errors
+  Object.keys(upsCharts).forEach(k => { try { upsCharts[k].destroy(); } catch(e){} delete upsCharts[k]; });
+  const subs = ['overview','heatmap','machines','stops','defects','compare','refs'];
+  subs.forEach(s => {
+    const el = document.getElementById('ups-page-'+s);
+    if(el) el.style.display = s===sub ? 'block':'none';
+  });
+  document.querySelectorAll('.ups-sub-tab').forEach((t,i) =>
+    t.classList.toggle('active', subs[i]===sub)
+  );
+  upsRefresh();
+}
+
+function upsDestroyChart(id) {
+  if(upsCharts[id]) { upsCharts[id].destroy(); delete upsCharts[id]; }
+}
+
+function upsRefresh() {
+  const rows = upsGetRows();
+  if(!rows.length) return;
+  const agg = upsAggregate(rows);
+  upsMeta = upsBuildMeta(rows);
+  upsRenderKPIs(agg.overall);
+  upsRenderTop3(agg.byDate);
+  if(upsCurrentSubPage==='overview') upsRenderOverview(agg);
+  if(upsCurrentSubPage==='heatmap')  upsRenderHeatmap(rows);
+  if(upsCurrentSubPage==='machines') upsRenderMachines(agg);
+  if(upsCurrentSubPage==='stops')    upsRenderStops(agg);
+  if(upsCurrentSubPage==='defects')  upsRenderDefects(agg);
+  if(upsCurrentSubPage==='compare')  upsRenderCompare(rows);
+  if(upsCurrentSubPage==='refs')     upsRenderRefs(agg);
+}
+
+// ── UPS RENDERS ──
+function upsRenderKPIs(o) {
+  const projColor = upsCurrentProj==='all' ? '#1a3a5c' : (UPS_COLORS[upsCurrentProj]||'#1a3a5c');
+  const kpis = [
+    {label:'OEE',          val:(o.oee*100).toFixed(1)+'%',    color:projColor,   pct:o.oee,    sub:'Média dos turnos'},
+    {label:'Disponibilidade',val:(o.avail*100).toFixed(1)+'%',color:'#1d9e75',   pct:o.avail,  sub:'(Tempo disp.)/(Tempo plan.)'},
+    {label:'Desempenho',   val:(o.perf*100).toFixed(1)+'%',   color:'#f5a623',   pct:o.perf,   sub:'Vel. real / vel. ideal'},
+    {label:'Qualidade',    val:(o.quality*100).toFixed(1)+'%',color:'#639922',   pct:o.quality,sub:'OK / (OK+NOK)'},
+  ];
+  document.getElementById('ups-kpi-row').innerHTML = kpis.map(k => `
+    <div class="kpi-card" style="border-top-color:${k.color}">
+      <div class="kpi-lbl">${k.label}</div>
+      <div class="kpi-val" style="color:${k.color}">${k.val}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100,k.pct*100).toFixed(1)}%;background:${k.color}"></div></div>
+    </div>`).join('');
+}
+
+function upsRenderTop3(byDate) {
+  const sorted = [...byDate].filter(d=>d.OEE>0).sort((a,b)=>a.OEE-b.OEE).slice(0,3);
+  const colors = ['#e24b4a','#f5a623','#1d9e75'];
+  const ranks  = ['1º Pior','2º Pior','3º Pior'];
+  document.getElementById('ups-top3-days').innerHTML = sorted.map((d,i) => `
+    <div class="alert-card ${i===2?'ok':i===1?'warn':''}">
+      <div class="alert-rank">${ranks[i]} · ${d.date}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:3px;">OEE médio do dia</div>
+      <div class="alert-val" style="color:${colors[i]}">${(d.OEE*100).toFixed(1)}%</div>
+    </div>`).join('');
+}
+
+function upsRenderOverview(agg) {
+  upsDestroyChart('upsLine'); upsDestroyChart('upsShift');
+  const oeeData = agg.byDate.map(x=>+(x.OEE*100).toFixed(1));
+  upsCharts['upsLine'] = new Chart(document.getElementById('ups-lineChart'), {
+    type:'line',
+    data:{labels:agg.byDate.map(x=>x.date), datasets:[
+      {label:'OEE',        data:oeeData,                                           borderColor:'#1a3a5c',backgroundColor:'rgba(26,58,92,.08)',fill:true,tension:.35,pointRadius:4,borderWidth:2.5},
+      {label:'Disponib.',  data:agg.byDate.map(x=>+(x.avail*100).toFixed(1)),      borderColor:'#1d9e75',borderDash:[5,3],fill:false,tension:.35,pointRadius:2,borderWidth:1.5},
+      {label:'Desempenho', data:agg.byDate.map(x=>+(x.perf*100).toFixed(1)),       borderColor:'#f5a623',borderDash:[5,3],fill:false,tension:.35,pointRadius:2,borderWidth:1.5},
+      {label:'Qualidade',  data:agg.byDate.map(x=>+(x.quality*100).toFixed(1)),    borderColor:'#639922',borderDash:[5,3],fill:false,tension:.35,pointRadius:2,borderWidth:1.5},
+      {label:'Tendência',  data:linReg(oeeData),                                   borderColor:'rgba(150,150,150,.55)',borderDash:[8,4],fill:false,tension:0,pointRadius:0,borderWidth:1.5},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:105,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10},maxRotation:45},grid:{color:gc}}}}
+  });
+  upsCharts['upsShift'] = new Chart(document.getElementById('ups-shiftChart'), {
+    type:'bar',
+    data:{labels:agg.byTurno.map(x=>x.turno), datasets:[{label:'OEE',data:agg.byTurno.map(x=>+(x.OEE*100).toFixed(1)),backgroundColor:['#1a3a5c','#2e6da4','#5b9bd5'],borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function upsRenderHeatmap(rows) {
+  const machines = [...new Set(rows.map(r=>r.maquina))].sort((a,b)=>a-b);
+  const dates    = [...new Set(rows.map(r=>r.date+'|'+r.iso))].sort((a,b)=>{const ia=a.split('|')[1]||'',ib=b.split('|')[1]||'';return ia<ib?-1:1;});
+  const matrix   = {};
+  for(const r of rows) {
+    const dk = r.date+'|'+r.iso;
+    if(!matrix[r.maquina]) matrix[r.maquina]={};
+    if(!matrix[r.maquina][dk]) matrix[r.maquina][dk]={n:0,oeeSum:0};
+    matrix[r.maquina][dk].n++;
+    matrix[r.maquina][dk].oeeSum += r.oee;
+  }
+  let html = '<table class="hm-table"><thead><tr><th>Máq.</th>';
+  dates.forEach(dk=>{const[date]=dk.split('|');html+=`<th>${date}</th>`;});
+  html += '</tr></thead><tbody>';
+  for(const m of machines) {
+    html += `<tr><td class="hm-mach">M${m}</td>`;
+    for(const dk of dates) {
+      const g = matrix[m]?.[dk];
+      if(!g) { html+='<td style="background:#e8edf2;color:#ccc;">—</td>'; continue; }
+      const oee = g.oeeSum/g.n;
+      const[date]=dk.split('|');
+      html+=`<td style="background:${hmColor(oee)};color:#fff;" title="M${m} ${date}: ${(oee*100).toFixed(1)}%">${(oee*100).toFixed(0)}%</td>`;
+    }
+    html += '</tr>';
+  }
+  document.getElementById('ups-heatmap-container').innerHTML = html+'</tbody></table>';
+}
+
+function upsRenderMachines(agg) {
+  upsDestroyChart('upsMOEE'); upsDestroyChart('upsMComp');
+  const labels = agg.byMachine.map(x=>'M'+x.machine);
+  upsCharts['upsMOEE'] = new Chart(document.getElementById('ups-machineOEEChart'), {
+    type:'bar',
+    data:{labels, datasets:[{label:'OEE',data:agg.byMachine.map(x=>+(x.OEE*100).toFixed(1)),backgroundColor:agg.byMachine.map(x=>x.OEE>=.75?'#1d9e75':x.OEE>=.6?'#f5a623':'#e24b4a'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false}}}}
+  });
+  upsCharts['upsMComp'] = new Chart(document.getElementById('ups-machineCompChart'), {
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Disponib.',  data:agg.byMachine.map(x=>+(x.avail*100).toFixed(1)),   backgroundColor:'#1d9e75',borderRadius:2},
+      {label:'Desempenho', data:agg.byMachine.map(x=>+(x.perf*100).toFixed(1)),    backgroundColor:'#f5a623',borderRadius:2},
+      {label:'Qualidade',  data:agg.byMachine.map(x=>+(x.quality*100).toFixed(1)), backgroundColor:'#639922',borderRadius:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:10},color:tc,boxWidth:12,padding:8}}},
+      scales:{y:{min:0,max:110,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function upsRenderStops(agg) {
+  upsDestroyChart('upsStopD');
+  if(!agg.stops.length) {
+    document.getElementById('ups-stop-bars').innerHTML='<div style="color:var(--text3);font-size:11px;padding:10px 0;">Sem dados de paragens.</div>';
+    return;
+  }
+  renderHBars('ups-stop-bars', agg.stops, STOP_COLORS);
+  upsCharts['upsStopD'] = new Chart(document.getElementById('ups-stopDoughnut'), {
+    type:'doughnut',
+    data:{labels:agg.stops.map(x=>x[0]), datasets:[{data:agg.stops.map(x=>x[1]),backgroundColor:STOP_COLORS,borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:10},color:tc,boxWidth:12,padding:8}},tooltip:{callbacks:{label:c=>c.label+': '+c.parsed.toFixed(1)+'%'}}}}
+  });
+}
+
+function upsRenderDefects(agg) {
+  upsDestroyChart('upsDefD');
+  if(!agg.defects.length) {
+    document.getElementById('ups-defect-bars').innerHTML='<div style="color:var(--text3);font-size:11px;padding:10px 0;">Sem dados de defeitos.</div>';
+    return;
+  }
+  renderHBars('ups-defect-bars', agg.defects, DEF_COLORS);
+  const top6 = agg.defects.slice(0,6);
+  const rest  = agg.defects.slice(6).reduce((a,[,v])=>a+v,0);
+  const cd    = rest>0 ? [...top6,['Outros',+rest.toFixed(1)]] : top6;
+  upsCharts['upsDefD'] = new Chart(document.getElementById('ups-defectDoughnut'), {
+    type:'doughnut',
+    data:{labels:cd.map(x=>x[0]), datasets:[{data:cd.map(x=>x[1]),backgroundColor:[...DEF_COLORS.slice(0,6),'#bbb'],borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'52%',plugins:{legend:{position:'bottom',labels:{font:{size:10},color:tc,boxWidth:12,padding:7}},tooltip:{callbacks:{label:c=>c.label+': '+c.parsed.toFixed(1)+'%'}}}}
+  });
+}
+
+function upsRenderCompare(rows) {
+  const meses = upsMeta.meses;
+  if(meses.length < 2) {
+    document.getElementById('ups-compare-kpis').innerHTML='<div class="card" style="grid-column:1/-1;text-align:center;color:var(--text3);padding:30px;">Necessário pelo menos 2 meses de dados para comparar.</div>';
+    ['ups-lineChartA','ups-lineChartB','ups-compareBarChart'].forEach(id=>upsDestroyChart(id.replace('ups-','')));
+    return;
+  }
+  const mesA=meses[0], mesB=meses[1];
+  document.getElementById('ups-title-line-a').textContent = mesA;
+  document.getElementById('ups-title-line-b').textContent = mesB;
+  const rowsA = rows.filter(r=>r.month===mesA);
+  const rowsB = rows.filter(r=>r.month===mesB);
+  const aggA  = upsAggregate(rowsA).overall;
+  const aggB  = upsAggregate(rowsB).overall;
+  const metrics = [
+    {lbl:'OEE',           a:aggA.oee,    b:aggB.oee,    color:'#1a3a5c', fmt:v=>(v*100).toFixed(1)+'%'},
+    {lbl:'Disponibilidade',a:aggA.avail,  b:aggB.avail,  color:'#1d9e75', fmt:v=>(v*100).toFixed(1)+'%'},
+    {lbl:'Desempenho',    a:aggA.perf,   b:aggB.perf,   color:'#f5a623', fmt:v=>(v*100).toFixed(1)+'%'},
+    {lbl:'Qualidade',     a:aggA.quality,b:aggB.quality, color:'#639922', fmt:v=>(v*100).toFixed(1)+'%'},
+  ];
+  document.getElementById('ups-compare-kpis').innerHTML = metrics.map(m=>{
+    const diff=+((m.b-m.a)*100).toFixed(1);
+    const arrow=diff>=0?'▲':'▼';
+    const dc=diff>=0?'#1d9e75':'#e24b4a';
+    return `<div class="card" style="border-top:3px solid ${m.color}">
+      <div class="kpi-lbl">${m.lbl}</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:6px;">
+        <div><div style="font-size:10px;color:var(--text3);">${mesA}</div><div style="font-size:20px;font-weight:600;font-family:var(--mono);color:var(--text2);">${m.fmt(m.a)}</div></div>
+        <div style="font-size:16px;color:var(--text3);">→</div>
+        <div><div style="font-size:10px;color:var(--text3);">${mesB}</div><div style="font-size:20px;font-weight:600;font-family:var(--mono);color:${m.color};">${m.fmt(m.b)}</div></div>
+        <div style="margin-left:auto;font-size:13px;font-weight:600;color:${dc};">${arrow} ${Math.abs(diff)}pp</div>
+      </div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(100,m.b*100).toFixed(1)}%;background:${m.color}"></div></div>
+    </div>`;
+  }).join('');
+
+  ['ups-lineChartA','ups-lineChartB'].forEach((id,i)=>{
+    const chartKey = i===0 ? 'upsLineA' : 'upsLineB';
+    upsDestroyChart(chartKey);
+    const aggFull = upsAggregate(i===0?rowsA:rowsB);
+    const color   = i===0?'#1a3a5c':'#2e6da4';
+    const oeeD    = aggFull.byDate.map(x=>+(x.OEE*100).toFixed(1));
+    upsCharts[chartKey] = new Chart(document.getElementById(id), {
+      type:'line',
+      data:{labels:aggFull.byDate.map(x=>x.date), datasets:[
+        {label:'OEE',data:oeeD,borderColor:color,backgroundColor:color+'22',fill:true,tension:.35,pointRadius:3,borderWidth:2},
+        {label:'Tendência',data:linReg(oeeD),borderColor:'rgba(150,150,150,.5)',borderDash:[6,3],fill:false,tension:0,pointRadius:0,borderWidth:1.5},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+        scales:{y:{min:0,max:105,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:9},maxRotation:45},grid:{color:gc}}}}
+    });
+  });
+  upsDestroyChart('cmpBar2');
+  upsCharts['cmpBar2'] = new Chart(document.getElementById('ups-compareBarChart'), {
+    type:'bar',
+    data:{labels:['OEE','Disponib.','Desempenho','Qualidade'], datasets:[
+      {label:mesA, data:[aggA.oee,aggA.avail,aggA.perf,aggA.quality].map(v=>+(v*100).toFixed(1)), backgroundColor:'#1a3a5c',borderRadius:4},
+      {label:mesB, data:[aggB.oee,aggB.avail,aggB.perf,aggB.quality].map(v=>+(v*100).toFixed(1)), backgroundColor:'#5b9bd5',borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},color:tc,boxWidth:12,padding:8}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function upsRenderRefs(agg) {
+  upsDestroyChart('upsRefOEE'); upsDestroyChart('upsRefComp'); upsDestroyChart('upsRefVol');
+  const labels = agg.byRef.map(x=>x.ref);
+  upsCharts['upsRefOEE'] = new Chart(document.getElementById('ups-refOEEChart'), {
+    type:'bar',
+    data:{labels, datasets:[{label:'OEE',data:agg.byRef.map(x=>+(x.OEE*100).toFixed(1)),backgroundColor:agg.byRef.map(x=>x.OEE>=.75?'#1d9e75':x.OEE>=.6?'#f5a623':'#e24b4a'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'%'}}},
+      scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:9},maxRotation:45},grid:{display:false}}}}
+  });
+  upsCharts['upsRefComp'] = new Chart(document.getElementById('ups-refCompChart'), {
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Disponib.',  data:agg.byRef.map(x=>+(x.avail*100).toFixed(1)),   backgroundColor:'#1d9e75',borderRadius:2},
+      {label:'Desempenho', data:agg.byRef.map(x=>+(x.perf*100).toFixed(1)),    backgroundColor:'#f5a623',borderRadius:2},
+      {label:'Qualidade',  data:agg.byRef.map(x=>+(x.quality*100).toFixed(1)), backgroundColor:'#639922',borderRadius:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:110,ticks:{callback:v=>v+'%',color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:9},maxRotation:45},grid:{display:false}}}}
+  });
+  upsCharts['upsRefVol'] = new Chart(document.getElementById('ups-refVolChart'), {
+    type:'bar',
+    data:{labels, datasets:[{label:'Peças',data:agg.byRef.map(x=>x.tp||0),backgroundColor:'#2e6da4',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+' peças'}}},
+      scales:{y:{ticks:{callback:v=>v>=1000?(v/1000).toFixed(0)+'k':v,color:tc,font:{size:10}},grid:{color:gc}},x:{ticks:{color:tc,font:{size:9},maxRotation:45},grid:{display:false}}}}
+  });
+}
+
+Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
+Chart.defaults.font.size=11;
+initLoadScreen();
+</script>
+</body>
+</html>
