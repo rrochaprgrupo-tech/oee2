@@ -183,13 +183,47 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 
 <!-- LOAD SCREEN -->
 <div id="load-screen">
-  <div class="load-box">
+  <div class="load-box" style="max-width:660px;">
     <div class="load-logo"></div>
     <div class="load-title">Dashboard OEE</div>
-    <div class="load-sub">Carrega um ou mais ficheiros Excel para começar.<br>Os dados ficam apenas no teu browser — nada é enviado para servidores.</div>
+    <div class="load-sub">Carrega os ficheiros Excel para começar.<br>Os dados ficam apenas no teu browser — nada é enviado para servidores.</div>
 
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;text-align:left;">Injeção</div>
     <div class="file-zones" id="file-zones">
       <!-- zones built dynamically -->
+    </div>
+
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 8px;text-align:left;display:flex;align-items:center;gap:8px;">
+      <span>UPS</span><span style="flex:1;height:1px;background:var(--border);display:inline-block;"></span><span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">opcional</span>
+    </div>
+    <div class="ups-load-zones" id="load-ups-zones">
+      <div class="ups-load-zone" id="ls-fz-martur" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDropLS(event,'martur')">
+        <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFileLS(event,'martur')">
+        <span class="ups-load-tag martur">Martur</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;color:var(--text);" id="ls-fname-martur">Clica ou arrasta ficheiro Martur (.xlsx)</div>
+          <div style="font-size:10px;color:var(--text3);" id="ls-fstatus-martur">Opcional</div>
+        </div>
+        <span id="ls-fbadge-martur" style="display:none;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
+      </div>
+      <div class="ups-load-zone" id="ls-fz-lx3" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDropLS(event,'lx3')">
+        <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFileLS(event,'lx3')">
+        <span class="ups-load-tag lx3">LX3</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;color:var(--text);" id="ls-fname-lx3">Clica ou arrasta ficheiro LX3 (.xlsx)</div>
+          <div style="font-size:10px;color:var(--text3);" id="ls-fstatus-lx3">Opcional</div>
+        </div>
+        <span id="ls-fbadge-lx3" style="display:none;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
+      </div>
+      <div class="ups-load-zone" id="ls-fz-mra2" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDropLS(event,'mra2')">
+        <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFileLS(event,'mra2')">
+        <span class="ups-load-tag mra2">MRA2</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;color:var(--text);" id="ls-fname-mra2">Clica ou arrasta ficheiro MRA2 (.xlsx)</div>
+          <div style="font-size:10px;color:var(--text3);" id="ls-fstatus-mra2">Opcional</div>
+        </div>
+        <span id="ls-fbadge-mra2" style="display:none;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
+      </div>
     </div>
 
     <div id="speed-section" style="display:none;text-align:left;margin-bottom:16px;">
@@ -235,8 +269,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
   <div class="fp-section">
     <div class="fp-stitle" onclick="toggleSec('s-fs')">Fins de semana <span class="fp-arrow open" id="arr-s-fs">▶</span></div>
     <div class="fp-body" id="s-fs">
-      <label class="chk-row"><input type="checkbox" id="chk-sat" checked onchange="refresh()"> Incluir sábados</label>
-      <label class="chk-row"><input type="checkbox" id="chk-sun" checked onchange="refresh()"> Incluir domingos</label>
+      <label class="chk-row"><input type="checkbox" id="chk-sat" checked onchange="refresh();if(currentPage==='ups')upsRefresh();"> Incluir sábados</label>
+      <label class="chk-row"><input type="checkbox" id="chk-sun" checked onchange="refresh();if(currentPage==='ups')upsRefresh();"> Incluir domingos</label>
     </div>
   </div>
   <div class="fp-section">
@@ -251,9 +285,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
     <div class="fp-stitle" onclick="toggleSec('s-date')">Intervalo de datas <span class="fp-arrow open" id="arr-s-date">▶</span></div>
     <div class="fp-body" id="s-date" style="padding-top:6px;">
       <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">De</div>
-      <input type="date" class="date-inp" id="date-from" onchange="refresh()">
+      <input type="date" class="date-inp" id="date-from" onchange="refresh();if(currentPage==='ups')upsRefresh();">
       <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Até</div>
-      <input type="date" class="date-inp" id="date-to" onchange="refresh()">
+      <input type="date" class="date-inp" id="date-to" onchange="refresh();if(currentPage==='ups')upsRefresh();">
       <span class="fp-clear" onclick="clearDates()" style="display:block;margin-top:4px;">Limpar datas</span>
     </div>
   </div>
@@ -384,59 +418,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 
     <!-- UPS PAGE -->
     <div id="page-ups" style="display:none;">
-      <!-- Upload zones -->
-      <div id="ups-upload-panel" class="card" style="margin-bottom:12px;">
-        <div class="card-title">Unidade UPS — Carregar ficheiros</div>
-        <div class="ups-load-zones">
-          <div class="ups-load-zone" id="ups-fz-martur" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDrop(event,'martur')">
-            <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFile(event,'martur')">
-            <span class="ups-load-tag martur">Martur</span>
-            <div>
-              <div style="font-size:12px;font-weight:600;color:var(--text);" id="ups-fname-martur">Clica ou arrasta ficheiro Martur (.xlsx)</div>
-              <div style="font-size:10px;color:var(--text3);" id="ups-fstatus-martur">Aguarda ficheiro</div>
-            </div>
-            <span id="ups-fbadge-martur" style="display:none;margin-left:auto;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
-          </div>
-          <div class="ups-load-zone" id="ups-fz-lx3" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDrop(event,'lx3')">
-            <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFile(event,'lx3')">
-            <span class="ups-load-tag lx3">LX3</span>
-            <div>
-              <div style="font-size:12px;font-weight:600;color:var(--text);" id="ups-fname-lx3">Clica ou arrasta ficheiro LX3 (.xlsx)</div>
-              <div style="font-size:10px;color:var(--text3);" id="ups-fstatus-lx3">Aguarda ficheiro</div>
-            </div>
-            <span id="ups-fbadge-lx3" style="display:none;margin-left:auto;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
-          </div>
-          <div class="ups-load-zone" id="ups-fz-mra2" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="upsHandleDrop(event,'mra2')">
-            <input type="file" accept=".xlsx,.xls" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="upsHandleFile(event,'mra2')">
-            <span class="ups-load-tag mra2">MRA2</span>
-            <div>
-              <div style="font-size:12px;font-weight:600;color:var(--text);" id="ups-fname-mra2">Clica ou arrasta ficheiro MRA2 (.xlsx)</div>
-              <div style="font-size:10px;color:var(--text3);" id="ups-fstatus-mra2">Aguarda ficheiro</div>
-            </div>
-            <span id="ups-fbadge-mra2" style="display:none;margin-left:auto;font-size:10px;font-weight:600;background:#e8f4ec;color:#1d7a3a;padding:2px 8px;border-radius:3px;">✓</span>
-          </div>
-        </div>
-        <div style="font-size:10px;color:var(--text3);">Colunas esperadas: Data: Dia, Turno, Maquina, Referencia, Pok, Pnok + colunas de paragens e defeitos</div>
-      </div>
-
       <!-- Project selector -->
-      <div id="ups-content" style="display:none;">
-        <div class="ups-selector">
-          <button class="ups-proj-btn martur active" data-proj="martur" onclick="upsSetProj('martur')">Martur</button>
-          <button class="ups-proj-btn lx3" data-proj="lx3" onclick="upsSetProj('lx3')">LX3</button>
-          <button class="ups-proj-btn mra2" data-proj="mra2" onclick="upsSetProj('mra2')">MRA2</button>
-          <button class="ups-proj-btn" data-proj="all" onclick="upsSetProj('all')" style="margin-left:8px;">Todos (Comparação)</button>
-        </div>
-
-        <!-- Sub navigation -->
-        <div class="ups-sub-nav">
-          <button class="ups-sub-tab active" onclick="upsSetSubPage('overview')">Visão Geral</button>
-          <button class="ups-sub-tab" onclick="upsSetSubPage('heatmap')">Heatmap</button>
-          <button class="ups-sub-tab" onclick="upsSetSubPage('machines')">Máquinas</button>
-          <button class="ups-sub-tab" onclick="upsSetSubPage('stops')">Paragens</button>
-          <button class="ups-sub-tab" onclick="upsSetSubPage('defects')">Sucata</button>
-          <button class="ups-sub-tab" onclick="upsSetSubPage('compare')">Comparar meses</button>
-          <button class="ups-sub-tab" onclick="upsSetSubPage('refs')">Referências</button>
+      <div id="ups-content">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+          <div class="ups-selector" style="margin-bottom:0;">
+            <button class="ups-proj-btn martur active" data-proj="martur" onclick="upsSetProj('martur')">Martur</button>
+            <button class="ups-proj-btn lx3" data-proj="lx3" onclick="upsSetProj('lx3')">LX3</button>
+            <button class="ups-proj-btn mra2" data-proj="mra2" onclick="upsSetProj('mra2')">MRA2</button>
+            <button class="ups-proj-btn" data-proj="all" onclick="upsSetProj('all')" style="margin-left:8px;">Todos (Comparação)</button>
+          </div>
+          <div id="ups-no-data-msg" style="display:none;font-size:11px;color:var(--text3);padding:4px 10px;background:var(--bg);border-radius:5px;border:1px solid var(--border);">
+            ⚠ Sem dados — carrega os ficheiros UPS no botão <strong>+ Ficheiros</strong>
+          </div>
         </div>
 
         <!-- UPS KPIs -->
@@ -667,6 +660,8 @@ function analyzeAll() {
       document.getElementById('load-screen').style.display='none';
       setProgress('');
       refresh();
+      // Also process any UPS files already loaded from the load screen
+      upsCheckReady();
     } catch(err) {
       setProgress('Erro: ' + err.message);
       console.error(err);
@@ -674,8 +669,51 @@ function analyzeAll() {
   }, 50);
 }
 
+// ── UPS LOAD SCREEN HANDLERS ──
+function upsHandleDropLS(e, proj) {
+  e.preventDefault();
+  document.getElementById('ls-fz-'+proj).classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if(file) upsProcessFileLS(file, proj);
+}
+function upsHandleFileLS(e, proj) {
+  const file = e.target.files[0];
+  if(file) upsProcessFileLS(file, proj);
+}
+function upsProcessFileLS(file, proj) {
+  const el = document.getElementById('ls-fstatus-'+proj);
+  el.textContent = 'A ler...'; el.style.color = 'var(--blue)';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, {defval:0});
+      if(!data.length) { el.textContent='Ficheiro vazio'; el.style.color='var(--red)'; return; }
+      upsFiles[proj] = {name:file.name, rows:data.length, data};
+      upsRows[proj] = upsParseRows(data, proj);
+      document.getElementById('ls-fname-'+proj).textContent = file.name;
+      el.textContent = '✓ '+upsRows[proj].length+' registos';
+      el.style.color = 'var(--green)';
+      document.getElementById('ls-fbadge-'+proj).style.display = 'inline';
+      document.getElementById('ls-fz-'+proj).classList.add('loaded');
+    } catch(err) { el.textContent='Erro: '+err.message; el.style.color='var(--red)'; }
+  };
+  reader.readAsBinaryString(file);
+}
+
 function showLoadScreen() {
   initLoadScreen();
+  // Sync UPS zones state
+  UPS_PROJECTS.forEach(proj => {
+    if(upsFiles[proj]) {
+      document.getElementById('ls-fz-'+proj).classList.add('loaded');
+      document.getElementById('ls-fname-'+proj).textContent = upsFiles[proj].name;
+      const st = document.getElementById('ls-fstatus-'+proj);
+      st.textContent = '✓ '+upsRows[proj].length+' registos'; st.style.color='var(--green)';
+      document.getElementById('ls-fbadge-'+proj).style.display='inline';
+    }
+  });
   document.getElementById('load-screen').style.display='flex';
 }
 
@@ -758,16 +796,29 @@ function updateHeader() {
 
 // ── FILTER PANEL ──
 function buildFilters() {
+  // Merge Injeção + todos os UPS para os filtros
+  const upsAllRows = UPS_PROJECTS.flatMap(p => upsRows[p]);
+  const allForFilter = [...ALL_ROWS, ...upsAllRows];
+
   const mkChips = (id, items, key) => {
     document.getElementById(id).innerHTML = items.map(v =>
       `<span class="chip" data-key="${key}" data-val="${v}" onclick="toggleChip(this,'${key}','${v}')">${v}</span>`).join('');
   };
-  mkChips('s-mes',   META.meses,   'meses');
-  mkChips('s-week',  META.weeks,   'weeks');
-  mkChips('s-turno', META.turnos,  'turnos');
-  mkChips('s-maq',   META.maquinas.map(m=>'M'+m), 'maquinas');
-  mkChips('s-ref',   META.refs,    'refs');
-  const isos = ALL_ROWS.map(r=>r.iso).filter(Boolean).sort();
+
+  const order=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const meses   = [...new Set(allForFilter.map(r=>r.month))].sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+  const weeks   = [...new Set(allForFilter.map(r=>r.week))].sort();
+  const turnos  = [...new Set(allForFilter.map(r=>r.turno))].sort();
+  const maquinas= [...new Set(allForFilter.map(r=>r.maquina))].filter(Boolean).sort((a,b)=>a-b);
+  const refs    = [...new Set(allForFilter.map(r=>r.referencia))].sort();
+
+  mkChips('s-mes',   meses,              'meses');
+  mkChips('s-week',  weeks,              'weeks');
+  mkChips('s-turno', turnos,             'turnos');
+  mkChips('s-maq',   maquinas.map(m=>'M'+m), 'maquinas');
+  mkChips('s-ref',   refs,               'refs');
+
+  const isos = allForFilter.map(r=>r.iso).filter(Boolean).sort();
   if(isos.length) {
     document.getElementById('date-from').value = isos[0];
     document.getElementById('date-to').value   = isos[isos.length-1];
@@ -791,6 +842,7 @@ function toggleChip(el, key, val) {
   sel[key].has(rv) ? sel[key].delete(rv) : sel[key].add(rv);
   el.classList.toggle('active');
   refresh();
+  if(currentPage==='ups') upsRefresh();
 }
 
 function clearAll() {
@@ -802,12 +854,15 @@ function clearAll() {
 }
 
 function clearDates() {
-  const isos = ALL_ROWS.map(r=>r.iso).filter(Boolean).sort();
+  const upsAllRows = UPS_PROJECTS.flatMap(p => upsRows[p]);
+  const allRows = [...ALL_ROWS, ...upsAllRows];
+  const isos = allRows.map(r=>r.iso).filter(Boolean).sort();
   if(isos.length) {
     document.getElementById('date-from').value = isos[0];
     document.getElementById('date-to').value   = isos[isos.length-1];
   }
   refresh();
+  if(currentPage==='ups') upsRefresh();
 }
 
 function getRows() {
@@ -923,7 +978,12 @@ function setPage(p){
     t.classList.toggle('active',pages[i]===p);
   });
   if(p!=='ups') refresh();
-  else upsRefresh();
+  else {
+    const hasAny = UPS_PROJECTS.some(p => upsRows[p].length > 0);
+    const noDataMsg = document.getElementById('ups-no-data-msg');
+    if(noDataMsg) noDataMsg.style.display = hasAny ? 'none' : 'flex';
+    if(hasAny) upsRefresh();
+  }
 }
 
 function filterDay(iso){
@@ -1241,51 +1301,22 @@ let upsCurrentSubPage = 'overview';
 let upsCharts = {};
 let upsMeta = {};
 
-// ── UPS FILE LOADING ──
-function upsHandleDrop(e, proj) {
-  e.preventDefault();
-  document.getElementById('ups-fz-'+proj).classList.remove('drag');
-  const file = e.dataTransfer.files[0];
-  if(file) upsProcessFile(file, proj);
-}
-function upsHandleFile(e, proj) {
-  const file = e.target.files[0];
-  if(file) upsProcessFile(file, proj);
-}
-function upsProcessFile(file, proj) {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const wb = XLSX.read(ev.target.result, {type:'binary'});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, {defval:0});
-      if(!data.length) { upsSetStatus(proj,'Ficheiro vazio','err'); return; }
-      upsFiles[proj] = {name:file.name, rows:data.length, data};
-      upsRows[proj] = upsParseRows(data, proj);
-      document.getElementById('ups-fname-'+proj).textContent = file.name;
-      document.getElementById('ups-fstatus-'+proj).textContent = '✓ '+upsRows[proj].length+' registos válidos';
-      document.getElementById('ups-fstatus-'+proj).style.color = 'var(--green)';
-      document.getElementById('ups-fbadge-'+proj).style.display = 'inline';
-      document.getElementById('ups-fz-'+proj).classList.add('loaded');
-      upsCheckReady();
-    } catch(err) { upsSetStatus(proj,'Erro: '+err.message,'err'); }
-  };
-  reader.readAsBinaryString(file);
-}
-function upsSetStatus(proj, msg, type) {
-  const el = document.getElementById('ups-fstatus-'+proj);
-  el.textContent = msg;
-  el.style.color = type==='err' ? 'var(--red)' : 'var(--text3)';
-}
+// ── UPS FILE LOADING (called from load screen) ──
 function upsCheckReady() {
   const hasAny = UPS_PROJECTS.some(p => upsRows[p].length > 0);
+  const noDataMsg = document.getElementById('ups-no-data-msg');
+  if(noDataMsg) noDataMsg.style.display = hasAny ? 'none' : 'flex';
   if(hasAny) {
-    document.getElementById('ups-content').style.display = 'block';
-    document.getElementById('ups-upload-panel').style.marginBottom = '8px';
-    // Switch to the newly loaded project, keeping the current sub-page
-    const firstLoaded = UPS_PROJECTS.find(p => upsRows[p].length > 0);
-    const target = upsRows[upsCurrentProj]?.length > 0 ? upsCurrentProj : firstLoaded;
-    upsSetProj(target);
+    // Rebuild filters to include UPS data
+    if(ALL_ROWS.length) buildFilters();
+    const target = upsRows[upsCurrentProj]?.length > 0 ? upsCurrentProj
+      : (UPS_PROJECTS.find(p => upsRows[p].length > 0) || 'martur');
+    // Update active button without re-triggering refresh loop
+    document.querySelectorAll('.ups-proj-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.proj === target);
+    });
+    upsCurrentProj = target;
+    upsRefresh();
   }
 }
 
@@ -1443,12 +1474,29 @@ function upsAggregate(rows) {
   };
 }
 
-// Get rows for current project selection
+// Get rows for current project, applying the shared filter panel
 function upsGetRows() {
-  if(upsCurrentProj === 'all') {
-    return UPS_PROJECTS.flatMap(p => upsRows[p]);
-  }
-  return upsRows[upsCurrentProj] || [];
+  const incSat = document.getElementById('chk-sat').checked;
+  const incSun = document.getElementById('chk-sun').checked;
+  const from   = document.getElementById('date-from').value;
+  const to     = document.getElementById('date-to').value;
+
+  const base = upsCurrentProj === 'all'
+    ? UPS_PROJECTS.flatMap(p => upsRows[p])
+    : (upsRows[upsCurrentProj] || []);
+
+  return base.filter(r => {
+    if(!incSat && r.is_sat) return false;
+    if(!incSun && r.is_sun) return false;
+    if(sel.meses.size    && !sel.meses.has(r.month))      return false;
+    if(sel.weeks.size    && !sel.weeks.has(r.week))       return false;
+    if(sel.turnos.size   && !sel.turnos.has(r.turno))     return false;
+    if(sel.maquinas.size && !sel.maquinas.has(r.maquina)) return false;
+    if(sel.refs.size     && !sel.refs.has(r.referencia))  return false;
+    if(from && r.iso && r.iso < from) return false;
+    if(to   && r.iso && r.iso > to)   return false;
+    return true;
+  });
 }
 
 function upsBuildMeta(rows) {
