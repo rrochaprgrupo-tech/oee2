@@ -265,12 +265,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 <div class="content">
 <!-- FILTER PANEL -->
 <div class="filter-panel">
-  <div class="fp-header">Filtros <span class="fp-clear" onclick="clearAll()">Limpar</span></div>
+  <div class="fp-header" id="fp-header-title">Filtros — Injeção <span class="fp-clear" id="fp-clear-btn" onclick="clearAll()">Limpar</span></div>
   <div class="fp-section">
     <div class="fp-stitle" onclick="toggleSec('s-fs')">Fins de semana <span class="fp-arrow open" id="arr-s-fs">▶</span></div>
     <div class="fp-body" id="s-fs">
-      <label class="chk-row"><input type="checkbox" id="chk-sat" checked onchange="refresh();if(currentPage==='ups')upsRefresh();"> Incluir sábados</label>
-      <label class="chk-row"><input type="checkbox" id="chk-sun" checked onchange="refresh();if(currentPage==='ups')upsRefresh();"> Incluir domingos</label>
+      <label class="chk-row"><input type="checkbox" id="chk-sat" checked onchange="onFilterChange()"> Incluir sábados</label>
+      <label class="chk-row"><input type="checkbox" id="chk-sun" checked onchange="onFilterChange()"> Incluir domingos</label>
     </div>
   </div>
   <div class="fp-section">
@@ -285,10 +285,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
     <div class="fp-stitle" onclick="toggleSec('s-date')">Intervalo de datas <span class="fp-arrow open" id="arr-s-date">▶</span></div>
     <div class="fp-body" id="s-date" style="padding-top:6px;">
       <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">De</div>
-      <input type="date" class="date-inp" id="date-from" onchange="refresh();if(currentPage==='ups')upsRefresh();">
+      <input type="date" class="date-inp" id="date-from" onchange="onFilterChange();">
       <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Até</div>
-      <input type="date" class="date-inp" id="date-to" onchange="refresh();if(currentPage==='ups')upsRefresh();">
-      <span class="fp-clear" onclick="clearDates()" style="display:block;margin-top:4px;">Limpar datas</span>
+      <input type="date" class="date-inp" id="date-to" onchange="onFilterChange();">
+      <span class="fp-clear" id="fp-clear-dates" onclick="onClearDates()" style="display:block;margin-top:4px;">Limpar datas</span>
     </div>
   </div>
   <div class="fp-section">
@@ -546,7 +546,8 @@ let ALL_ROWS = [];
 let META = {};
 let userSpeeds = {...DEFAULT_SPEEDS};
 let loadedFiles = [];
-let sel = {meses:new Set(),weeks:new Set(),turnos:new Set(),maquinas:new Set(),refs:new Set()};
+let sel    = {meses:new Set(),weeks:new Set(),turnos:new Set(),maquinas:new Set(),refs:new Set()};
+let upsSel = {meses:new Set(),weeks:new Set(),turnos:new Set(),maquinas:new Set(),refs:new Set()};
 let currentPage = 'overview';
 let charts = {};
 let filteredRows = [];
@@ -795,30 +796,19 @@ function updateHeader() {
 }
 
 // ── FILTER PANEL ──
-function buildFilters() {
-  // Merge Injeção + todos os UPS para os filtros
-  const upsAllRows = UPS_PROJECTS.flatMap(p => upsRows[p]);
-  const allForFilter = [...ALL_ROWS, ...upsAllRows];
+function buildFilters() { buildInjFilters(); }
 
+function buildInjFilters() {
   const mkChips = (id, items, key) => {
     document.getElementById(id).innerHTML = items.map(v =>
       `<span class="chip" data-key="${key}" data-val="${v}" onclick="toggleChip(this,'${key}','${v}')">${v}</span>`).join('');
   };
-
-  const order=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const meses   = [...new Set(allForFilter.map(r=>r.month))].sort((a,b)=>order.indexOf(a)-order.indexOf(b));
-  const weeks   = [...new Set(allForFilter.map(r=>r.week))].sort();
-  const turnos  = [...new Set(allForFilter.map(r=>r.turno))].sort();
-  const maquinas= [...new Set(allForFilter.map(r=>r.maquina))].filter(Boolean).sort((a,b)=>a-b);
-  const refs    = [...new Set(allForFilter.map(r=>r.referencia))].sort();
-
-  mkChips('s-mes',   meses,              'meses');
-  mkChips('s-week',  weeks,              'weeks');
-  mkChips('s-turno', turnos,             'turnos');
-  mkChips('s-maq',   maquinas.map(m=>'M'+m), 'maquinas');
-  mkChips('s-ref',   refs,               'refs');
-
-  const isos = allForFilter.map(r=>r.iso).filter(Boolean).sort();
+  mkChips('s-mes',   META.meses,              'meses');
+  mkChips('s-week',  META.weeks,              'weeks');
+  mkChips('s-turno', META.turnos,             'turnos');
+  mkChips('s-maq',   META.maquinas.map(m=>'M'+m), 'maquinas');
+  mkChips('s-ref',   META.refs,               'refs');
+  const isos = ALL_ROWS.map(r=>r.iso).filter(Boolean).sort();
   if(isos.length) {
     document.getElementById('date-from').value = isos[0];
     document.getElementById('date-to').value   = isos[isos.length-1];
@@ -827,6 +817,49 @@ function buildFilters() {
     document.getElementById('date-to').min   = isos[0];
     document.getElementById('date-to').max   = isos[isos.length-1];
   }
+  // Re-apply active state for existing sel
+  document.querySelectorAll('.chip').forEach(c => {
+    const key = c.dataset.key, val = c.dataset.val;
+    const rv = key==='maquinas' ? parseInt(val.replace('M','')) : val;
+    c.classList.toggle('active', sel[key]?.has(rv) || false);
+  });
+}
+
+function buildUpsFilters() {
+  const rows = upsGetAllRows(); // all rows for current proj, unfiltered
+  if(!rows.length) return;
+  const order=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const meses   = [...new Set(rows.map(r=>r.month))].sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+  const weeks   = [...new Set(rows.map(r=>r.week))].sort();
+  const turnos  = [...new Set(rows.map(r=>r.turno))].sort();
+  const maquinas= [...new Set(rows.map(r=>r.maquina))].filter(Boolean).sort((a,b)=>a-b);
+  const refs    = [...new Set(rows.map(r=>r.referencia))].sort();
+
+  const mkChips = (id, items, key) => {
+    document.getElementById(id).innerHTML = items.map(v =>
+      `<span class="chip" data-key="${key}" data-val="${v}" onclick="upsToggleChip(this,'${key}','${v}')">${v}</span>`).join('');
+  };
+  mkChips('s-mes',   meses,              'meses');
+  mkChips('s-week',  weeks,              'weeks');
+  mkChips('s-turno', turnos,             'turnos');
+  mkChips('s-maq',   maquinas.map(m=>'M'+m), 'maquinas');
+  mkChips('s-ref',   refs,               'refs');
+
+  const isos = rows.map(r=>r.iso).filter(Boolean).sort();
+  if(isos.length) {
+    document.getElementById('date-from').value = isos[0];
+    document.getElementById('date-to').value   = isos[isos.length-1];
+    document.getElementById('date-from').min = isos[0];
+    document.getElementById('date-from').max = isos[isos.length-1];
+    document.getElementById('date-to').min   = isos[0];
+    document.getElementById('date-to').max   = isos[isos.length-1];
+  }
+  // Re-apply active state for existing upsSel
+  document.querySelectorAll('.chip').forEach(c => {
+    const key = c.dataset.key, val = c.dataset.val;
+    const rv = key==='maquinas' ? parseInt(val.replace('M','')) : val;
+    c.classList.toggle('active', upsSel[key]?.has(rv) || false);
+  });
 }
 
 function toggleSec(id) {
@@ -837,12 +870,12 @@ function toggleSec(id) {
   if(arr) arr.classList.toggle('open',h);
 }
 
+// ── INJEÇÃO FILTER ACTIONS ──
 function toggleChip(el, key, val) {
   const rv = key==='maquinas' ? parseInt(val.replace('M','')) : val;
   sel[key].has(rv) ? sel[key].delete(rv) : sel[key].add(rv);
   el.classList.toggle('active');
   refresh();
-  if(currentPage==='ups') upsRefresh();
 }
 
 function clearAll() {
@@ -854,15 +887,38 @@ function clearAll() {
 }
 
 function clearDates() {
-  const upsAllRows = UPS_PROJECTS.flatMap(p => upsRows[p]);
-  const allRows = [...ALL_ROWS, ...upsAllRows];
-  const isos = allRows.map(r=>r.iso).filter(Boolean).sort();
+  const isos = ALL_ROWS.map(r=>r.iso).filter(Boolean).sort();
   if(isos.length) {
     document.getElementById('date-from').value = isos[0];
     document.getElementById('date-to').value   = isos[isos.length-1];
   }
   refresh();
-  if(currentPage==='ups') upsRefresh();
+}
+
+// ── UPS FILTER ACTIONS ──
+function upsToggleChip(el, key, val) {
+  const rv = key==='maquinas' ? parseInt(val.replace('M','')) : val;
+  upsSel[key].has(rv) ? upsSel[key].delete(rv) : upsSel[key].add(rv);
+  el.classList.toggle('active');
+  upsRefresh();
+}
+
+function upsClearAll() {
+  upsSel = {meses:new Set(),weeks:new Set(),turnos:new Set(),maquinas:new Set(),refs:new Set()};
+  document.getElementById('chk-sat').checked = true;
+  document.getElementById('chk-sun').checked = true;
+  document.querySelectorAll('.chip.active').forEach(c=>c.classList.remove('active'));
+  upsClearDates();
+}
+
+function upsClearDates() {
+  const rows = upsGetAllRows();
+  const isos = rows.map(r=>r.iso).filter(Boolean).sort();
+  if(isos.length) {
+    document.getElementById('date-from').value = isos[0];
+    document.getElementById('date-to').value   = isos[isos.length-1];
+  }
+  upsRefresh();
 }
 
 function getRows() {
@@ -965,6 +1021,16 @@ function linReg(data){
 
 function hmColor(v){if(v===null||v===undefined)return'#e8edf2';if(v>=.80)return'#1d9e75';if(v>=.70)return'#97c459';if(v>=.55)return'#f5a623';return'#e24b4a';}
 
+// Dispatch filter events to the correct section
+function onFilterChange() {
+  if(currentPage==='ups') upsRefresh();
+  else refresh();
+}
+function onClearDates() {
+  if(currentPage==='ups') upsClearDates();
+  else clearDates();
+}
+
 // ── PAGE NAVIGATION ──
 function setPage(p){
   currentPage=p;
@@ -977,12 +1043,21 @@ function setPage(p){
     const pages=[...injPages,'ups'];
     t.classList.toggle('active',pages[i]===p);
   });
-  if(p!=='ups') refresh();
-  else {
-    const hasAny = UPS_PROJECTS.some(p => upsRows[p].length > 0);
+
+  // Adapt filter panel label and actions to the active section
+  const hdr = document.getElementById('fp-header-title');
+  const clearBtn = document.getElementById('fp-clear-btn');
+  if(p==='ups') {
+    hdr.firstChild.textContent = 'Filtros — UPS ';
+    clearBtn.setAttribute('onclick','upsClearAll()');
+    const hasAny = UPS_PROJECTS.some(proj => upsRows[proj].length > 0);
     const noDataMsg = document.getElementById('ups-no-data-msg');
     if(noDataMsg) noDataMsg.style.display = hasAny ? 'none' : 'flex';
-    if(hasAny) upsRefresh();
+    if(hasAny) { buildUpsFilters(); upsRefresh(); }
+  } else {
+    hdr.firstChild.textContent = 'Filtros — Injeção ';
+    clearBtn.setAttribute('onclick','clearAll()');
+    if(ALL_ROWS.length) { buildInjFilters(); refresh(); }
   }
 }
 
@@ -1307,16 +1382,13 @@ function upsCheckReady() {
   const noDataMsg = document.getElementById('ups-no-data-msg');
   if(noDataMsg) noDataMsg.style.display = hasAny ? 'none' : 'flex';
   if(hasAny) {
-    // Rebuild filters to include UPS data
-    if(ALL_ROWS.length) buildFilters();
     const target = upsRows[upsCurrentProj]?.length > 0 ? upsCurrentProj
       : (UPS_PROJECTS.find(p => upsRows[p].length > 0) || 'martur');
-    // Update active button without re-triggering refresh loop
     document.querySelectorAll('.ups-proj-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.proj === target);
     });
     upsCurrentProj = target;
-    upsRefresh();
+    if(currentPage==='ups') { buildUpsFilters(); upsRefresh(); }
   }
 }
 
@@ -1380,7 +1452,9 @@ function upsParseRows(data, proj) {
     // OEE: use pre-calculated if available, else compute
     let oee, avail, perf, quality;
     const TURNO = +r['Tempo Real'] || +r['Tempo Planeado'] || 480;
-    const PLANNED = Math.max(0, TURNO - (40)); // assume 40 min breaks if no better data
+    const PLANNED = Math.max(0, TURNO - 40); // tempo planeado por turno (min)
+    // LX3: velocidade ideal = 300 peças/hora → ciclo = 60/300 = 0.2 min/peça
+    const LX3_CICLO_MIN = 60 / 300; // 0.2 min por peça
 
     if('OEE' in r && r.OEE > 0) {
       oee     = +r.OEE;
@@ -1392,9 +1466,10 @@ function upsParseRows(data, proj) {
       const availMin = Math.max(0, PLANNED - totalStops);
       avail   = PLANNED > 0 ? availMin / PLANNED : 0;
       quality = totalProd > 0 ? pok / totalProd : 1;
-      // For perf, use Ciclo Minuto if available; otherwise assume 1.0 (not measurable)
-      const ciclo = +r['Reg Fichas Parametros Ups - Referencia → Ciclo Minuto'] ||
-                    +r['UPS┋Fichas Parâmetros - Referencia → Ciclo Minuto'] || 0;
+      // Ciclo: usa LX3_CICLO_MIN para LX3, ou ciclo do ficheiro, ou assume perf=1
+      const cicloFich = +r['Reg Fichas Parametros Ups - Referencia → Ciclo Minuto'] ||
+                        +r['UPS┋Fichas Parâmetros - Referencia → Ciclo Minuto'] || 0;
+      const ciclo = proj==='lx3' ? LX3_CICLO_MIN : cicloFich;
       if(ciclo > 0 && availMin > 0) {
         const idealPerTurno = availMin / ciclo;
         perf = Math.min(1.5, idealPerTurno > 0 ? totalProd / idealPerTurno : 0);
@@ -1474,25 +1549,27 @@ function upsAggregate(rows) {
   };
 }
 
-// Get rows for current project, applying the shared filter panel
+// All rows for current proj (unfiltered) — used to build filter chips
+function upsGetAllRows() {
+  if(upsCurrentProj === 'all') return UPS_PROJECTS.flatMap(p => upsRows[p]);
+  return upsRows[upsCurrentProj] || [];
+}
+
+// Get rows for current project, applying the UPS filter panel (upsSel)
 function upsGetRows() {
   const incSat = document.getElementById('chk-sat').checked;
   const incSun = document.getElementById('chk-sun').checked;
   const from   = document.getElementById('date-from').value;
   const to     = document.getElementById('date-to').value;
 
-  const base = upsCurrentProj === 'all'
-    ? UPS_PROJECTS.flatMap(p => upsRows[p])
-    : (upsRows[upsCurrentProj] || []);
-
-  return base.filter(r => {
+  return upsGetAllRows().filter(r => {
     if(!incSat && r.is_sat) return false;
     if(!incSun && r.is_sun) return false;
-    if(sel.meses.size    && !sel.meses.has(r.month))      return false;
-    if(sel.weeks.size    && !sel.weeks.has(r.week))       return false;
-    if(sel.turnos.size   && !sel.turnos.has(r.turno))     return false;
-    if(sel.maquinas.size && !sel.maquinas.has(r.maquina)) return false;
-    if(sel.refs.size     && !sel.refs.has(r.referencia))  return false;
+    if(upsSel.meses.size    && !upsSel.meses.has(r.month))      return false;
+    if(upsSel.weeks.size    && !upsSel.weeks.has(r.week))       return false;
+    if(upsSel.turnos.size   && !upsSel.turnos.has(r.turno))     return false;
+    if(upsSel.maquinas.size && !upsSel.maquinas.has(r.maquina)) return false;
+    if(upsSel.refs.size     && !upsSel.refs.has(r.referencia))  return false;
     if(from && r.iso && r.iso < from) return false;
     if(to   && r.iso && r.iso > to)   return false;
     return true;
@@ -1513,9 +1590,11 @@ function upsBuildMeta(rows) {
 // ── UPS NAVIGATION ──
 function upsSetProj(proj) {
   upsCurrentProj = proj;
+  upsSel = {meses:new Set(),weeks:new Set(),turnos:new Set(),maquinas:new Set(),refs:new Set()};
   document.querySelectorAll('.ups-proj-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.proj === proj);
   });
+  if(currentPage==='ups') buildUpsFilters();
   upsRefresh();
 }
 
