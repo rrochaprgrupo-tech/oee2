@@ -1384,27 +1384,27 @@ const UPS_COLORS   = {martur:'#1a3a5c', lx3:'#1d6e8a', mra2:'#39568a'};
 
 // Normalised column names extracted from any UPS file prefix
 function upsNormalise(col) {
-  // Strip prefix like "Martur - Registo Tempos Paragem → " or "LX3 - Registo Tempos Paragem → "
-  // Keep the short code after →
-  const arrow = col.indexOf('→');
-  const short = arrow>=0 ? col.slice(arrow+1).trim() : col.trim();
-  return short;
+  // Pegar o texto após o último →, limpar espaços
+  const arrow = col.lastIndexOf('→');
+  const raw = (arrow >= 0 ? col.slice(arrow + 1) : col).trim();
+  // Remover prefixos de código tipo "Af ", "Ave ", "St ", "Fm ", "Pq ", "Sh ", "Mt ", "Aud ", "En ", "Fc ", "Rh ", "Tb "
+  return raw.replace(/^[A-Z][a-z]{0,3}\s(?=[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀ])/u, '').trim();
 }
 
 const UPS_STOP_CODES = ['Ave Avaria De Equipamento','Af Afinação','St Setup','Fm Falta Material','Pq Problema Qualidade','Sh Shutdown','Mt Manutenção','Aud Auditoria','En Ensaio','Fc Formação Colaborador','Rh Recursos Humanos','Tb Troca Bobine'];
 const UPS_STOP_LABELS_MAP = {
-  'Ave Avaria De Equipamento':'Avaria Equipamento',
-  'Af Afinação':'Afinação',
-  'St Setup':'Setup',
-  'Fm Falta Material':'Falta Material',
-  'Pq Problema Qualidade':'Problema Qualidade',
-  'Sh Shutdown':'Shutdown',
-  'Mt Manutenção':'Manutenção',
-  'Aud Auditoria':'Auditoria',
-  'En Ensaio':'Ensaio',
-  'Fc Formação Colaborador':'Formação',
-  'Rh Recursos Humanos':'RH',
-  'Tb Troca Bobine':'Troca Bobine'
+  'Avaria De Equipamento':'Avaria / Manutenção',
+  'Afinação':'Afinação',
+  'Setup':'Setup',
+  'Falta Material':'Falta Material',
+  'Problema Qualidade':'Prob. Qualidade',
+  'Shutdown':'Shutdown',
+  'Manutenção':'Avaria / Manutenção',
+  'Auditoria':'Auditoria',
+  'Ensaio':'Ensaio',
+  'Formação Colaborador':'Formação',
+  'Recursos Humanos':'RH',
+  'Troca Bobine':'Troca Bobine'
 };
 
 let upsFiles = {martur:null, lx3:null, mra2:null};
@@ -1477,7 +1477,7 @@ function upsParseRows(data, proj) {
     for(const col of defCols) {
       const v = +r[col]||0;
       if(v===0) continue;
-      const label = upsNormalise(col).replace(/^.*→\s*/,'');
+      const label = upsNormalise(col);
       defects[label] = (defects[label]||0) + v;
     }
 
@@ -1515,9 +1515,18 @@ function upsParseRows(data, proj) {
       oee = avail * perf * quality;
     }
 
+    // Normalizar turno: T1*/E.T1 → T1, T2*/E.T2 → T2, T3* → T3; excluir T0 e HR puros
+    const rawTurno = String(r.Turno||'').trim().replace(/[\r\n]/g,'');
+    let turno;
+    if(/^T0/i.test(rawTurno) || /^HR$/i.test(rawTurno)) continue; // excluir T0 e HR
+    else if(/T1/i.test(rawTurno)) turno = 'T1';
+    else if(/T2/i.test(rawTurno)) turno = 'T2';
+    else if(/T3/i.test(rawTurno)) turno = 'T3';
+    else turno = rawTurno; // manter outros
+
     rows.push({
       date, iso, week:'Sem '+weekNum, month,
-      turno: String(r.Turno||'').trim(),
+      turno,
       maquina: +r.Maquina || 0,
       referencia: String(r.Referencia||'').trim(),
       is_sat: dow===6, is_sun: dow===0,
