@@ -1668,7 +1668,7 @@ function upsRenderKPIs(o) {
     {label:'Desempenho',   val:(o.perf*100).toFixed(1)+'%',   color:'#f5a623',   pct:o.perf,   sub:'Vel. real / vel. ideal'},
     {label:'Qualidade',    val:(o.quality*100).toFixed(1)+'%',color:'#639922',   pct:o.quality,sub:'OK / (OK+NOK)'},
   ];
-  document.getElementById('ups-kpi-row').innerHTML = kpis.map(k => `
+  document.getElementById('kpi-row').innerHTML = kpis.map(k => `
     <div class="kpi-card" style="border-top-color:${k.color}">
       <div class="kpi-lbl">${k.label}</div>
       <div class="kpi-val" style="color:${k.color}">${k.val}</div>
@@ -1681,7 +1681,7 @@ function upsRenderTop3(byDate) {
   const sorted = [...byDate].filter(d=>d.OEE>0).sort((a,b)=>a.OEE-b.OEE).slice(0,3);
   const colors = ['#e24b4a','#f5a623','#1d9e75'];
   const ranks  = ['1º Pior','2º Pior','3º Pior'];
-  document.getElementById('ups-top3-days').innerHTML = sorted.map((d,i) => `
+  document.getElementById('top3-days').innerHTML = sorted.map((d,i) => `
     <div class="alert-card ${i===2?'ok':i===1?'warn':''}">
       <div class="alert-rank">${ranks[i]} · ${d.date}</div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:3px;">OEE médio do dia</div>
